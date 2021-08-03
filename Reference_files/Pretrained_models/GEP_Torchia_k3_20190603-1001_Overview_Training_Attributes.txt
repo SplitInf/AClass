@@ -1,0 +1,6 @@
+""	"Alg"	"Feature_Range.1"	"Feature_Range.2"	"Method"	"CV"	"Repeats"	"N_Models"	"Avg_accuracy"
+"1"	"glmnet"	20	30	"repeatedcv"	10	5	11	0.9521212
+"2"	"knn"	20	30	"repeatedcv"	10	5	11	0.9240606
+"3"	"nb"	20	30	"repeatedcv"	10	5	11	0.8760909
+"4"	"pam"	20	30	"repeatedcv"	10	5	11	0.8983636
+"5"	"rf"	20	30	"repeatedcv"	10	5	11	0.9389394
