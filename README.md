@@ -1,6 +1,8 @@
 # AClass
 
 # 0.1.2-beta	Added support for Ho et al. colour scheme
+		Added run_id
+		Added support for run_id in batch.process.raw()
 		Added function to specify output path
 		training_memberships_link renamed to training_memberships_path
 		Changed file output naming scheme. No longer have numeric value before filenames.

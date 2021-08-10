@@ -219,7 +219,8 @@ process.raw <- function(work_path=getwd(), raw_path=NULL, keep_file_path=NULL, o
   }
   out_path <- paste0(work_path,"/",prj_prefix)
   dir.create(out_path, showWarnings = FALSE)
-  raw.obj$run_info$run_id <- prj_prefix
+
+  raw.obj$run_id <- prj_prefix
   
   # [1] load data
   print(paste0("=nano.load="))
@@ -257,23 +258,36 @@ batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep
     print(paste0("[MGS] Processing dir: ", i))
     raw_path_i <- paste0(raw_dir_path,"/",i)
     train.i <- process.raw(work_path=work_path, raw_path=raw_path_i, keep_file_path=keep_file_path, omit_file_path=omit_file_path, prefix=prefix, SampleContent = SampleContent)
-    # how to handle / merge results from many batches?
-    # train.i$run_info$csv needs to be merged...
-    # train.i$run_info$samples_found and train.i$run_info$samples_loaded can be added..?
-    # train.i$raw $prenorm_qc $norm, $norm.t can be merged?
-    ## run_info
+    ### merging results from multiple batches ###
+
+    ## run_info ##
+    # csv #
     if(is.null(train.full$run_info$csv)) {
       train.full$run_info$csv <- train.i$run_info$csv
     } else {
       train.full$run_info$csv <- c(train.full$run_info$csv,train.i$run_info$csv)
     }
-    ## combine samples_found
+    # samples_found #
     if(is.null(train.full$run_info$samples_found)) {
       train.full$run_info$samples_found <- train.i$run_info$samples_found
     } else {
       samples_found.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_found,split = " "))[1])
       samples_found.full <- as.numeric(unlist(strsplit(train.full$run_info$samples_found,split = " "))[1])
       train.full$run_info$samples_found <- paste0(samples_found.i+samples_found.full, " samples found.")
+    }
+    # samples_loaded #
+    if(is.null(train.full$run_info$samples_loaded)) {
+      train.full$run_info$samples_loaded <- train.i$run_info$samples_loaded
+    } else {
+      samples_loaded.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_loaded,split = " "))[1])
+      samples_loaded.full <- as.numeric(unlist(strsplit(train.full$run_info$samples_loaded,split = " "))[1])
+      train.full$run_info$samples_loaded <- paste0(samples_loaded.i+samples_loaded.full, " samples loaded.")
+    }
+    ## run_id ##
+    if(is.null(train.full$run_id)) {
+      train.full$run_id <- train.i$run_id
+    } else {
+      train.full$run_id <- c(train.full$run_id,train.i$run_id)
     }
     ## $raw, $prenorm_qc $norm, $norm.t
     merge_df_by_rowname <- function(a,b,df){
@@ -320,12 +334,15 @@ classify.data <- function(work_path=getwd(), data, prefix, training_model_obj, a
   
   test.obj <- data
   
-  prj_prefix <- test.obj$run_info$run_id
-  out_path <- paste0(work_path,"/",prj_prefix)
+  # default to use run_id as out_path unless otherwise provided
+  if (!is.null(test.obj$run_id)){
+    prj_prefix <- test.obj$run_id
+    out_path <- paste0(work_path,"/",prj_prefix)
+  }
+  
   if(!is.null(out_path) & !dir.exists(out_path)){
     dir.create(out_path, showWarnings = FALSE)
   }
-  
   
   if (!is.null(keep_file_path)) {
       test.keep <- read.table(file = keep_file_path, stringsAsFactors = FALSE, sep = "\t")
