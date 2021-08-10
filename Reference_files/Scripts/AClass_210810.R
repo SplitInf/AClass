@@ -1,15 +1,5 @@
 ##### AClass #####
 
-# version 200117  Added feature to allow SampleContent option in process.raw() and nano.norm().
-#                 Adding feature to allow include_samples_path and omit_samples_path options in classify.data() 
-#                 Fixed nano.norm(), nano.prep() and nano.plot() to handle single sample.
-#                 Fixed nano.MDS() to exit gracefully when data has less than 3 samples.
-#                 Fixed "3_",prefix,"_testing_summary_full.txt" format
-#                 Changed condition in nano.prep to allow zero variance sample and to proceed and issue warning.
-#                 Changed nano.load() to allow files with the keyword “.*NormalizedData.*.csv” to be processed
-#
-# version 190709  First release
-
 ## To Do ##
 # Fix issue with TYPE. Use name of object instead?
 # hardcode Probes rank path and probes_rank (save all in "Training_Results")
@@ -31,7 +21,10 @@ initialize.prj <- function() {
   #   library(installr)
   # }
   
-
+  if (!requireNamespace("BiocManager", quietly = TRUE)){
+    install.packages("BiocManager")
+  }
+  
   if(!require(tcltk)){ # required for choosing folder
     install.packages("tcltk")
     library(tcltk)
@@ -64,17 +57,18 @@ initialize.prj <- function() {
   
   
   if(!require(gower)){
-    #install.packages("gower") # caret
-    source("https://bioconductor.org/biocLite.R")
-    biocLite("gower")
+    install.packages("gower") # caret
+    #source("https://bioconductor.org/biocLite.R")
+    #biocLite("gower")
     library(gower)
   }
   
   
   if(!require(data.table)){
     #install.packages("data.table") #caret
-    source("https://bioconductor.org/biocLite.R")
-    biocLite("data.table")
+    # source("https://bioconductor.org/biocLite.R")
+    # biocLite("data.table")
+    BiocManager::install(c("data.table"))
     library(data.table)
   }
   
@@ -86,10 +80,28 @@ initialize.prj <- function() {
   }
   
   if(!require(caret)){
-    #install.packages("caret")
-    source("https://bioconductor.org/biocLite.R")
-    biocLite("caret")
+    BiocManager::install(c("caret"))
     library(caret)
+  }
+  
+  if(!require(randomForest)){
+    BiocManager::install(c("randomForest"))
+    library(randomForest)
+  }
+  
+  if(!require(glmnet)){
+    BiocManager::install(c("glmnet"))
+    library(glmnet)
+  }
+  
+  if(!require(pamr)){
+    BiocManager::install(c("pamr"))
+    library(pamr)
+  }
+  
+  if(!require(klaR)){
+    BiocManager::install(c("klaR"))
+    library(klaR)
   }
   
   if(!require(reshape2)){
@@ -113,8 +125,7 @@ initialize.prj <- function() {
   }
 
   if (!require(vsn)){
-    source("https://bioconductor.org/biocLite.R")
-    biocLite("vsn")
+    BiocManager::install(c("vsn"))
     library("vsn")
   }
   
@@ -124,7 +135,10 @@ initialize.prj <- function() {
   }
   
   if(!require(NanoStringNorm)){
-    install.packages("NanoStringNorm")
+    # install.packages("NanoStringNorm")
+    #BiocManager::install(c("NanoStringNorm"))
+    install.packages('devtools')
+    devtools::install_url('https://cran.r-project.org/src/contrib/Archive/NanoStringNorm/NanoStringNorm_1.2.1.tar.gz')
     library(NanoStringNorm)
   }
   
@@ -145,16 +159,18 @@ initialize.prj <- function() {
   }
   
   if(!require(ResourceSelection)){
-    source("https://bioconductor.org/biocLite.R")
-    biocLite("ResourceSelection")
+    # source("https://bioconductor.org/biocLite.R")
+    # biocLite("ResourceSelection")
     #install.packages("ResourceSelection")
+    BiocManager::install(c("ResourceSelection"))
     library(ResourceSelection)
   }
   
   if(!require(Boruta)){
     #install.packages("Boruta")
-    source("https://bioconductor.org/biocLite.R")
-    biocLite("ResourceSelection")
+    # source("https://bioconductor.org/biocLite.R")
+    # biocLite("ResourceSelection")
+    BiocManager::install(c("Boruta"))
     library(Boruta)
   }
   if(!require(limma)){
@@ -177,31 +193,41 @@ initialize.prj <- function() {
 
 # process.raw #
 # running nano.load(), nano.prenorm.qc(), nano.prep(), nano.norm() and nano.MDS()
+# work_path - where output directory will be created
+# raw_path - path to raw data
+# keep_file_path - path to the file that contain the list of samples to be included (one sample per row, no header)
+# omit_file_path - path to the file that contain the list of samples not to be included (one sample per row, no header)
+# prefix - project prefix that goes to file output(s) *optional*
+# SampleContent - how nano.norm() handles normalization. Default is "housekeeping.geo.mean"
 
-process.raw <- function(work_path=getwd(), raw_path=NULL, ref_path=NULL, keep_file_path=NULL, omit_file_path=NULL, project=NULL, SampleContent = "housekeeping.geo.mean"){
+process.raw <- function(work_path=getwd(), raw_path=NULL, keep_file_path=NULL, omit_file_path=NULL, prefix=NULL, SampleContent = "housekeeping.geo.mean"){
   
   # check paths #
   if(is.null(raw_path)){stop("[MSG] raw_path missing")}
-  if(is.null(ref_path)){stop("[MSG] ref_path missing")}
-  
+
   if(is.null(omit_file_path)) {omit_file_path=""}
   if(is.null(keep_file_path)) {keep_file_path=""}
 
-  print(paste0("[MSG] work_path: ",work_path, " raw_path: ", raw_path, " keep_file_path: ", keep_file_path, " omit_file_path: ", omit_file_path, " project: ",project))
+  print(paste0("[MSG] work_path: ",work_path, " raw_path: ", raw_path, " keep_file_path: ", keep_file_path, " omit_file_path: ", omit_file_path, " prefix: ",prefix))
   raw.obj <- "" # raw.obj
   
-  # create project folder #
-  prj_prefix <- paste(project,format(Sys.time(), "%Y%m%d-%H%M"), sep = "_")
-  WD <- paste0(work_path,"/",prj_prefix)
-  dir.create(WD)
-  setwd(WD)
+  # create prefix folder #
+  if(!is.null(prefix)){
+    prj_prefix <- paste(prefix,format(Sys.time(), "%Y%m%d-%H%M"), sep = "_")
+  } else {
+    prj_prefix <- format(Sys.time(), "%Y%m%d-%H%M")
+  }
+  out_path <- paste0(work_path,"/",prj_prefix)
+  dir.create(out_path, showWarnings = FALSE)
+  raw.obj$run_info$run_id <- prj_prefix
   
   # [1] load data
   print(paste0("=nano.load="))
   raw.obj <- nano.load(raw_path = raw_path, keep_file_path=keep_file_path, omit_file_path=omit_file_path)
+
   # [2] Prenorm qc
   print(paste0("=nano.prenorm.qc="))
-  raw.obj <- nano.prenorm.qc(data=raw.obj, project = project)
+  raw.obj <- nano.prenorm.qc(data=raw.obj, prefix = prefix, out_path = out_path)
   # [3] Normalization
   print(paste0("=nano.norm="))
   raw.obj <- nano.norm(data=raw.obj, SampleContent = SampleContent) 
@@ -209,15 +235,97 @@ process.raw <- function(work_path=getwd(), raw_path=NULL, ref_path=NULL, keep_fi
   print(paste0("=nano.prep="))
   raw.obj <- nano.prep(data=raw.obj)# transpose and check for zero's
   
+  setwd(work_path) # return to original path prevents nested dirs
   return(raw.obj)
   
 }
 
-##### classify.data #####
+##### Batch Process Raw #####
+# batch mode of process.raw() where the end obj comes from combining obj from each data dir
+# all parameters matches with process.raw() except:
+# raw_dir_path  expects multiple raw folders stored within this path.
 
-classify.data <- function(data, prefix, training_model_obj, alg_list = c("rf","glmnet","pam", "nb", "knn"), keep_file_path = NULL, omit_file_path = NULL){
+batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep_file_path=NULL, omit_file_path=NULL, prefix=NULL, SampleContent = "housekeeping.geo.mean"){
+  
+  # get path to csv's
+  raw_dir <- as.data.frame(list.files(path = raw_dir_path, pattern = ".*NormalizedData.*.csv", recursive = TRUE, full.names=TRUE))
+  raw_dir <- apply(raw_dir,1,function(x) unlist(strsplit(gsub(paste0(raw_dir_path,"/"),"",x),split = "/"))[1] )
+  raw_dir <- unique(raw_dir)
+  
+  train.full <- list()
+  for (i in raw_dir) {
+    print(paste0("[MGS] Processing dir: ", i))
+    raw_path_i <- paste0(raw_dir_path,"/",i)
+    train.i <- process.raw(work_path=work_path, raw_path=raw_path_i, keep_file_path=keep_file_path, omit_file_path=omit_file_path, prefix=prefix, SampleContent = SampleContent)
+    # how to handle / merge results from many batches?
+    # train.i$run_info$csv needs to be merged...
+    # train.i$run_info$samples_found and train.i$run_info$samples_loaded can be added..?
+    # train.i$raw $prenorm_qc $norm, $norm.t can be merged?
+    ## run_info
+    if(is.null(train.full$run_info$csv)) {
+      train.full$run_info$csv <- train.i$run_info$csv
+    } else {
+      train.full$run_info$csv <- c(train.full$run_info$csv,train.i$run_info$csv)
+    }
+    ## combine samples_found
+    if(is.null(train.full$run_info$samples_found)) {
+      train.full$run_info$samples_found <- train.i$run_info$samples_found
+    } else {
+      samples_found.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_found,split = " "))[1])
+      samples_found.full <- as.numeric(unlist(strsplit(train.full$run_info$samples_found,split = " "))[1])
+      train.full$run_info$samples_found <- paste0(samples_found.i+samples_found.full, " samples found.")
+    }
+    ## $raw, $prenorm_qc $norm, $norm.t
+    merge_df_by_rowname <- function(a,b,df){
+      print(a)
+      if(df == "raw"){
+        header <- c("Code.Class", "Name", "Accession")
+        a[[df]] <- merge(a[[df]] , b[[df]], by=header)
+      } else if(df != "raw"){
+        a[[df]] <- merge(a[[df]] , b[[df]], by="row.names")
+        row.names(a[[df]]) <- a[[df]][,1]
+        a[[df]] <- a[[df]][,-1]
+      }
+      return(a[[df]])
+    }
+    
+    if(is.null(train.full$raw)){
+      train.full$raw <- train.i$raw
+    } else {
+      train.full$raw <- merge_df_by_rowname(a=train.full, b=train.i, df="raw")
+    }
+    
+    if(is.null(train.full$prenorm_qc)){
+      train.full$prenorm_qc <- train.i$prenorm_qc
+    } else {
+      train.full$prenorm_qc <- rbind(train.full$prenorm_qc, train.i$prenorm_qc)
+    }
+    
+    if(is.null(train.full$norm)){
+      train.full$norm <- train.i$norm
+    } else {
+      train.full$norm <- merge_df_by_rowname(a=train.full, b=train.i, df="norm")
+    }
+    
+    train.full$norm.t <- as.data.frame(t(train.full$norm))
+    
+  }
+  
+  return(train.full)
+}
+
+##### classify.data #####
+# work_path
+classify.data <- function(work_path=getwd(), data, prefix, training_model_obj, alg_list = c("rf","glmnet","pam", "nb", "knn"), keep_file_path = NULL, omit_file_path = NULL, out_path=NULL){
   
   test.obj <- data
+  
+  prj_prefix <- test.obj$run_info$run_id
+  out_path <- paste0(work_path,"/",prj_prefix)
+  if(!is.null(out_path) & !dir.exists(out_path)){
+    dir.create(out_path, showWarnings = FALSE)
+  }
+  
   
   if (!is.null(keep_file_path)) {
       test.keep <- read.table(file = keep_file_path, stringsAsFactors = FALSE, sep = "\t")
@@ -235,12 +343,12 @@ classify.data <- function(data, prefix, training_model_obj, alg_list = c("rf","g
 
   # [6] Test
   # choose algorithms
-  test.obj <- nano.test(prefix = prefix, training_model_obj = training_model_obj, data = test.obj, alg_list = alg_list) # output text file to wd
+  test.obj <- nano.test(prefix = prefix, training_model_obj = training_model_obj, data = test.obj, alg_list = alg_list, out_path = out_path) # output text file to out_path
   
   # [7] Consolidate results
   # choose min max range based on model accuracy
-  test.obj <- get.nano.test.results(prefix,test.obj)
-  saveRDS(test.obj, file = paste0(prefix,"_test.data.tested.RDS"))
+  test.obj <- get.nano.test.results(prefix,test.obj, outpath = outpath)
+  saveRDS(test.obj, file = paste0(out_path,"/",prefix,"_test.data.tested.RDS"))
   
   # [8] Set Colour Code based on pre-trained models
   # group <- c("Group1","Group2A","Group2B")
@@ -249,7 +357,7 @@ classify.data <- function(data, prefix, training_model_obj, alg_list = c("rf","g
   test.obj <- nano.set.colour(test.obj, group)
   
   # [9] Generate report
-  test.obj <- nano.plot(prefix = prefix, data = test.obj, prob= "Avg_Probability", report_type="Summary", print_report = TRUE, thres_avg_prob=0, thres_geomean = 100)
+  test.obj <- nano.plot(prefix = prefix, data = test.obj, prob= "Avg_Probability", report_type="Summary", print_report = TRUE, thres_avg_prob=0, thres_geomean = 100, out_path=out_path)
   
   return(test.obj)
 }
@@ -277,7 +385,7 @@ classify.data <- function(data, prefix, training_model_obj, alg_list = c("rf","g
 nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="") {
   raw.summary <- list()
   raw.merge <- data.frame()
-  for (nanofile in list.files(path=raw_path, pattern = ".*NormalizedData.*.csv", recursive = TRUE)){
+  for (nanofile in list.files(path=raw_path, pattern = ".*NormalizedData.*.csv", recursive = FALSE)){
 
     raw <- read.table(paste(raw_path,nanofile, sep = "/"), sep = ",", skip = 15, stringsAsFactors = FALSE) # skip header
     header <- c("Code.Class", "Name", "Accession")
@@ -296,7 +404,8 @@ nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="") 
     }
   }
   
-  raw.summary[["samples_found"]] <- paste0(ncol(raw.merge)-3, " samples found.")
+  n_sample <- ifelse(ncol(raw.merge)-3 <0,0,ncol(raw.merge)-3)
+  raw.summary[["samples_found"]] <- paste0(n_sample, " samples found.")
   
   print(paste0("[MSG] ",raw.summary[["samples_found"]]))
 
@@ -317,13 +426,13 @@ nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="") 
     raw.merge <- raw.merge[,!colnames(raw.merge) %in% test.omit]
   }
   
-  raw.summary[["samples_loaded"]] <- paste0(ncol(raw.merge)-3, " samples loaded.")
+  raw.summary[["samples_loaded"]] <- paste0(n_sample, " samples loaded.")
   print(paste0("[MSG] ",raw.summary[["samples_loaded"]])) #7
   raw.loaded <- list()
 
   raw.loaded$run_info <- raw.summary
   raw.loaded$raw <- raw.merge
-  if (ncol(raw.merge)-3 == 0){
+  if (n_sample == 0){
     stop("[MSG] No samples were loaded. Check file omit list.")
   } else {}
   return(raw.loaded)
@@ -334,6 +443,7 @@ nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="") 
 #' Prenorm Nanostring Data and produce report. Required to calculate HK_geomean
 #' @param raw_data Raw dataframe from nano.load.
 #' @param code_class Default "Housekeeping".
+#' @param prefix project prefix
 #' @return Report of the raw data and GeoMean table.
 #' @example
 #' library(reshape2)
@@ -342,8 +452,12 @@ nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="") 
 #' library(gridExtra)
 #' library(grid) # dependencies of gridExtra
 #' nano.prenorm.qc(test.raw)
-nano.prenorm.qc <- function(data, code_class = "Housekeeping", project){
+nano.prenorm.qc <- function(data, code_class = "Housekeeping", prefix, out_path=NULL){
   raw_data <- data$raw
+  
+  if(!is.null(out_path) & !dir.exists(out_path)){
+    stop("[MSG] out_path doesn't exist.")
+  }
   
   library(reshape2)
   library(ggplot2)
@@ -423,17 +537,20 @@ nano.prenorm.qc <- function(data, code_class = "Housekeeping", project){
           legend.position = "bottom",
           legend.box = "vertical")
 
+  ### Output ###
   #data_name <- (substitute(raw_data)) # get data name. error 
   data_name <- "raw_data"
   print(paste0("[MSG] Exporting QC report"))
   
-  pdf(file = paste0("1_Prenorm_QC_",project,"_",data_name,".pdf"), width= 8,  height = 10.5)
+  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+  
+  pdf(file = paste0(out_path,"/",prefix,"Prenorm_QC","_",data_name,".pdf"), width= 8,  height = 10.5)
   grid.arrange(p.genes, p.qc, p.cv, p.mean_cv, ncol=2,
                top=textGrob("Prenorm Housekeeping Genes", gp=gpar(fontsize=15,font=8))
   )
   dev.off()
   
-  write.table(hk.prenorm_qc, file = paste0("1_Prenorm_QC_",project,"_",data_name,".txt"), sep = "\t", col.names = NA, quote = FALSE)
+  write.table(hk.prenorm_qc, file = paste0(out_path,"/",prefix,"Prenorm_QC","_",data_name,".txt"), sep = "\t", col.names = NA, quote = FALSE)
 
   data$prenorm_qc <- hk.prenorm_qc
   return(data)
@@ -466,7 +583,7 @@ nano.prep <- function(data){
     # causes issues for single sample cases and modified to allow such cases and issue warning.
 
     if(nrow(norm.t.nzv[norm.t.nzv$nzv == "TRUE",]) != 0){
-      warning(paste0("[MSG] Zero variance detected in data. This will happen for single sample analysis otherwise proceed with caution."))
+      warning(paste0("[MSG] Zero variance detected in data - proceed with caution. For single sample analysis this is expected and can be ignored."))
       print(norm.t.nzv[norm.t.nzv$nzv == "TRUE",])
       #stopifnot(nrow(norm.t.nzv[norm.t.nzv$nzv == "TRUE",]) == 0)
     }
@@ -477,15 +594,15 @@ nano.prep <- function(data){
 
 }
 
-##### Trainining #####
+##### Training #####
 
-generate.models <- function(data, training_memberships_link, N.train.per, prefix){
+generate.models <- function(data, training_memberships_path, N.train.per, prefix, alg_list = c("rf","glmnet","pam", "nb", "knn"), probes_rank, min_test_features=5, max_test_features=30){
 
     raw.obj <- train_model <- ""
     
-    raw.obj <- nano.trainsplit(data = data,training_memberships_link,N.train.per)
+    raw.obj <- nano.trainsplit(data = data,training_memberships_path = training_memberships_path,N.train.per = N.train.per)
     
-    training_model_obj <- nano.train(prefix, data = data , alg_list = c("rf","glmnet","pam", "nb", "knn"), probes_rank, min_test_features=5, max_test_features=30)
+    training_model_obj <- nano.train(prefix = prefix, data = data , alg_list = alg_list, probes_rank = probes_rank, min_test_features=min_test_features, max_test_features=max_test_features)
     nano.train.report(prefix, training_model_obj=training_model_obj, feature_min, feature_max)
 }
 
@@ -495,18 +612,18 @@ generate.models <- function(data, training_memberships_link, N.train.per, prefix
 #    retired "have_test_label"
 #' Split training data and assign memberships to training data (or testing). Returns index for splitting data.
 #' @param train.norm Normalized dataframe.
-#' @param training_memberships_link Normalized dataframe.
+#' @param training_memberships_path Normalized dataframe.
 #' @param N.train.per ## percentage of training samples use for training, the remaining would be used for validation e.g. 0.8
 #' @param have_test_label If ground truth labels are avaliable for test data
 #' @return train.idx
 #' @example
-#' train.idx<-  nano.trainsplit(train.data,training_memberships_link, 0.8, FALSE)
+#' train.idx<-  nano.trainsplit(train.data,training_memberships_path, 0.8, FALSE)
 #' train.data.main <- train.data[train.idx,,drop=FALSE]
 #' train.data.validate <- train.data[-train.idx,,drop=FALSE]
 
-nano.trainsplit <- function(data = data,training_memberships_link,N.train.per){
+nano.trainsplit <- function(data = data,training_memberships_path,N.train.per){
     train.data <- data$norm.t
-    training_memberships <- read.table(file = training_memberships_link, sep = "\t", row.names = 1, header = FALSE)
+    training_memberships <- read.table(file = training_memberships_path, sep = "\t", row.names = 1, header = FALSE)
     row.names(training_memberships) <- make.names(row.names(training_memberships)) # fix names
     colnames(training_memberships) <- "Group"
     # Create Training_Full labels
@@ -556,12 +673,13 @@ nano.trainsplit <- function(data = data,training_memberships_link,N.train.per){
 #' @param probes_rank_path path to probe ranking list. Given list sorted by p value.
 #' @param min_test_features Minimum number of features tested.
 #' @param max_test_features Maximum number of features tested.
+#' @param out_path output path
 #' @return Optimal_Training_Attributes Full_Training_Attributes.txt performance_pdf
 #'
 #' @example
 #' nano.train(raw_data_path, omit_file_path_with_file_name)
 
-nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "knn"), probes_rank_path=NULL, min_test_features=20, max_test_features=30, c.method = "repeatedcv", c.repeats = 5, c.number = 10) {
+nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "knn"), probes_rank_path=NULL, min_test_features=20, max_test_features=30, c.method = "repeatedcv", c.repeats = 5, c.number = 10, out_path=NULL) {
     
     if(is.null(data$train.data.main) || is.null(data$train.data.validate)){
         stop("[MSG] train.data.main / train.data.validate missing. Did you run nano.trainsplit()?")
@@ -578,6 +696,9 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
         probes.list.full <- as.character(unlist(read.table(file = probes_rank_path)))
     }
 
+    if(!is.null(out_path) & !dir.exists(out_path)){
+      stop("[MSG] out_path doesn't exist.")
+    }
     
     train.settings <- list(alg_list=alg_list, probes_rank=probes.list.full, min_test_features=min_test_features,max_test_features=max_test_features,c.method =c.method , c.repeats = c.repeats, c.number = c.number )
 
@@ -627,7 +748,7 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
 
         training_model_list[[paste0(alg,"_",probe.idx)]] <- train_model
         ## save every model and overwrites it ##
-        #saveRDS(training_model_list, file=paste0(prefix,"_Training_Models_List.tmp.RDS")) # replaces original RDS with newer one every loop rather than in the end in case crashing
+        #saveRDS(training_model_list, file=paste0(out_path,"/",prefix,"_Training_Models_List.tmp.RDS")) # replaces original RDS with newer one every loop rather than in the end in case crashing
 
         ## show variables that were used in the final model
         print(predictors(train_model))
@@ -674,7 +795,7 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
         training_model_mat_list[[paste0(alg,"_",probe.idx,"_matrix")]] <- train.mat.best.cast
         training_model_mat_list[[paste0(alg,"_",probe.idx,"_confmatrix")]] <- train_model.conmat
         training_model_mat_list[["Training_Result_Matrix"]] <- training_model_mat_list.full
-        saveRDS(training_model_mat_list, file=paste0(prefix,"_Training_Models_Mat_List.RDS")) # replaces original RDS with newer one every loop rather than in the end in case crashing
+        saveRDS(training_model_mat_list, file=paste0(out_path,"/",prefix,"_Training_Models_Mat_List.RDS")) # replaces original RDS with newer one every loop rather than in the end in case crashing
         
       } # probe.idx loop
 
@@ -687,7 +808,7 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
     training_model_obj[["train.data.main"]] <- train.data.training_main
     training_model_obj[["train.settings"]] <- train.settings
     
-    saveRDS(training_model_obj, file=paste0(prefix,"_Training_Models_List.RDS")) 
+    saveRDS(training_model_obj, file=paste0(out_path,"/",prefix,"_Training_Models_List.RDS")) 
     return(training_model_obj)
     # pdf(file = paste0(prefix,"_Accuracy_by_Alg.pdf"), width = 8, height = 10.5)
     # gg <- ggline(internal_performance, x = "Num_Features", y = "Accuracy",
@@ -714,9 +835,16 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
 #' @param training_model_obj - training model object where training performance is pulled out from
 #' @param feature_min - controls the number of min plotting range
 #' @param feature_max - controls the number of max plotting range
-nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max){
+#' @param out_path output path
+nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max, out_path=NULL){
+  
+  if(!is.null(out_path) & !dir.exists(out_path)){
+    stop("[MSG] Out_path doesn't exist.")
+  }
+  
   train_list <- training_model_obj[["training_model_list"]]
   full_internal_performance <- internal_performance <- data.frame()
+  
   for (model_idx in 1:length(train_list)){
     train_model <- train_list[[model_idx]]
     alg <- as.character(train_model$method)
@@ -860,9 +988,9 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
   
   ##### Output #####
   print(paste0("[MSG] Check directory for detailed reports."))
-  write.table(internal_performance, file = paste0(prefix,"_Optimal_Training_Attributes.txt"), col.names = NA, sep = "\t")
-  write.table(full_internal_performance, file = paste0(prefix,"_Full_Training_Attributes.txt"), col.names = NA, sep = "\t")
-  write.table(overivew_internal_performance,file = paste0(prefix,"_Overview_Training_Attributes.txt"), col.names = NA, sep = "\t")
+  write.table(internal_performance, file = paste0(out_path,"/",prefix,"_Optimal_Training_Attributes.txt"), col.names = NA, sep = "\t")
+  write.table(full_internal_performance, file = paste0(out_path,"/",prefix,"_Full_Training_Attributes.txt"), col.names = NA, sep = "\t")
+  write.table(overivew_internal_performance,file = paste0(out_path,"/",prefix,"_Overview_Training_Attributes.txt"), col.names = NA, sep = "\t")
 }
 
 
@@ -929,13 +1057,14 @@ nano.norm <- function(data, SampleContent = "housekeeping.geo.mean", round.value
 #' @param min_test_features Minimum number of features tested.
 #' @param max_test_features Maximum number of features tested.
 #' @param prefix output prefix e.g. paste(project,format(Sys.time(), "%Y-%m-%d_%H%M"), sep = "_")
+#' @param out_path output location
 #' @return testing_results_summary_groups_score
 #'
 #' @example
 #' nano.test(raw_data_path, omit_file_path_with_file_name)
 
 
-nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test_features=NULL, max_test_features=NULL) {
+nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test_features=NULL, max_test_features=NULL, out_path=NULL) {
     
     if(is.null(data$norm.t)) {
       stop("[MSG] Run nano.prep() first before testing.")
@@ -948,6 +1077,11 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
     } else {
       training_model_list <- training_model_obj[["training_model_list"]]
     }  
+  
+    if(!is.null(out_path) & !dir.exists(out_path)){
+      stop("[MSG] out_path doesn't exist.")
+    }
+  
     ## setting defaults ##
     training_model_list.mat <- data.frame(matrix(unlist(strsplit(names(training_model_list),"_")), ncol=2,byrow = TRUE, dimnames = list(NULL,c("Alg","Model"))), stringsAsFactors = FALSE)
 
@@ -1028,7 +1162,7 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
           class_max_prob <- as.data.frame(apply(Prediction_prob,1,max))
           colnames(class_max_prob) <- "Probability"
 
-          testing_results <- data.frame("Sample" = rownames(test.df), "Alg" = alg, "Num_Features" = i, "Class" = as.character(Prediction_class),"Probability" = as.numeric(class_max_prob$Probability))
+          testing_results <- data.frame("Sample" = rownames(test.df), "Alg" = alg, "Num_Features" = i, "Class" = Prediction_class,"Probability" = as.numeric(class_max_prob$Probability))
           colnames(testing_results) <- c("Sample" , "Alg","Num_Features","Class","Probability")
           testing_results_summary_groups_score <- as.data.frame(rbind(testing_results_summary_groups_score, testing_results))
           colnames(testing_results_summary_groups_score) <- c("Sample","Alg","Num_Features","Class","Probability")
@@ -1039,7 +1173,10 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
     
     ### Output ###
     print("[MSG] Printing results. Also check conf_matrix for matrix")
-    write.table(testing_results_summary_groups_score, file=paste0("3_",prefix,"_testing_summary_full.txt"), sep = "\t", col.names = NA)
+    
+    if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+    
+    write.table(testing_results_summary_groups_score, file=paste0(out_path,"/",prefix,"testing_summary_full.txt"), sep = "\t", col.names = NA)
     
     data$test_results_full <- testing_results_summary_groups_score
     
@@ -1048,8 +1185,8 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
     
     # if you have conf_matrix # (need if statement)
     if (("Group" %in% colnames(test.df))){
-      write.table(conf_matrix_results.full, file=paste0(prefix,"_conf_matrix_results_full_Test.txt"), sep = "\t", col.names = NA)
-      saveRDS(conf_matrix_list, file=paste0(prefix,"_Alg_Conf_Matrix_Test.RDS")) # more details
+      write.table(conf_matrix_results.full, file=paste0(out_path,"/",prefix,"_conf_matrix_results_full_Test.txt"), sep = "\t", col.names = NA)
+      saveRDS(conf_matrix_list, file=paste0(out_path,"/",prefix,"_Alg_Conf_Matrix_Test.RDS")) # more details
     }
 
 } # end of test
@@ -1060,90 +1197,100 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
 # v2 - added remarks and soft/hard voting distinction
 # Plot Test Probability by samples
 # perform confusion matrix if "Group" column exist in dataframe
+#' @param prefix file prefix (optional)
 #' @param testing_results_summary_groups_score
+#' @param print_report print or not. default is FALSE
+#' @param out_path output path
 #' @return Test_aggregate_summary_ _Test_aggregate_summary_MAX_
 #' @example
 #' library(ggpubr)
 #' library(cowplot)
 #' nano.test(raw_data_path, omit_file_path_with_file_name)
-get.nano.test.results <- function(prefix, data, print_report=FALSE) {
+get.nano.test.results <- function(prefix, data, print_report=FALSE, out_path=NULL) {
     
-    testing_results_summary_groups_score <- data$test_results_full
-    prenorm_qc <- data$prenorm_qc # geomean, mean and cv
-    min_test_features <- data$run_info$test_settings[["min_test_features"]]
-    max_test_features <- data$run_info$test_settings[["max_test_features"]]
+  if(!is.null(out_path) & !dir.exists(out_path)){
+    stop("[MSG] out_path doesn't exist.")
+  }
+  
+  testing_results_summary_groups_score <- data$test_results_full
+  prenorm_qc <- data$prenorm_qc # geomean, mean and cv
+  min_test_features <- data$run_info$test_settings[["min_test_features"]]
+  max_test_features <- data$run_info$test_settings[["max_test_features"]]
+  
+  #### Aggregate ####
+  
+  testing_results_summary_groups_score_i_max_full <- testing_results_summary_groups_score_i_summary_full <- data.frame(SAMPLE=character(0), Num_Features=character(0), Class=character(0), Count=numeric(0), Probability=numeric(0))
+  
+  ##### Get ensemble results #####
+  for (SAMPLE in unique(testing_results_summary_groups_score$Sample)) {
+    testing_results_summary_groups_score_i <- testing_results_summary_groups_score[testing_results_summary_groups_score$Sample == SAMPLE,]
     
-    #### Aggregate ####
-    
-    testing_results_summary_groups_score_i_max_full <- testing_results_summary_groups_score_i_summary_full <- data.frame(SAMPLE=character(0), Num_Features=character(0), Class=character(0), Count=numeric(0), Probability=numeric(0))
-    
-    ##### Get ensemble results #####
-    for (SAMPLE in unique(testing_results_summary_groups_score$Sample)) {
-      testing_results_summary_groups_score_i <- testing_results_summary_groups_score[testing_results_summary_groups_score$Sample == SAMPLE,]
-      
-      ## model summary (by number of features) ##
-      for (FEATURES in c(min_test_features:max_test_features,"ALL")){
-        # select results for specific # of features #
-        if (FEATURES == "ALL"){
-          # "ALL" uses all Num_Features #
-          testing_results_summary_groups_score_i.feat <- testing_results_summary_groups_score_i
-        } else {
-          # select individual Num_Features
-          testing_results_summary_groups_score_i.feat <- testing_results_summary_groups_score_i[testing_results_summary_groups_score_i$Num_Features == FEATURES,]
-        }
-      
-          ## model summary (combined) ##
-          # Count           Number of alg for that Num_Features that chooses the particular class as most probable
-          # Num_Features    Number of features used for prediction
-          # Class           Prediction Class 
-          # N_models        Number of Alg's tested for that Num_Features
-          # Agreement       Proportion of models that chooses that particular class as the most probable
-          n_models_i <- nrow(testing_results_summary_groups_score_i.feat)
-          testing_results_summary_groups_score_i_summary <- data.frame(summary(testing_results_summary_groups_score_i.feat$Class))
-          testing_results_summary_groups_score_i_summary$Num_Features <- FEATURES
-          testing_results_summary_groups_score_i_summary$Class <- as.character(row.names(testing_results_summary_groups_score_i_summary))
-          colnames(testing_results_summary_groups_score_i_summary) <- c("Count", "Num_Features","Class")
-          # avg probability from algs with same Num_Features
-          avg_prob <- aggregate(Probability ~ Class ,testing_results_summary_groups_score_i.feat, mean)
-          
-          testing_results_summary_groups_score_i_summary <- merge(testing_results_summary_groups_score_i_summary, avg_prob, by="Class", all = TRUE, sort = TRUE)
-          testing_results_summary_groups_score_i_summary <- cbind(SAMPLE,testing_results_summary_groups_score_i_summary, n_models_i)
-          testing_results_summary_groups_score_i_summary$Model_Agreement <- testing_results_summary_groups_score_i_summary$Count/testing_results_summary_groups_score_i_summary$n_models_i
-          colnames(testing_results_summary_groups_score_i_summary) <- c("Sample","Class","Count","Num_Features" ,"Avg_Probability","N_models","Agreement")
-    
-          # combine individual results
-          testing_results_summary_groups_score_i_summary_full <- rbind(testing_results_summary_groups_score_i_summary_full,testing_results_summary_groups_score_i_summary)
-          
-          ##### Calculate most probable class ####
-          if (FEATURES == "ALL"){
-            testing_results_summary_groups_score_i_summary.ALL <- testing_results_summary_groups_score_i_summary[testing_results_summary_groups_score_i_summary$Num_Features == "ALL",]
-            # Hard voting (Count priority) - Sort by count then Avg_Probability
-            testing_results_summary_groups_score_i_max <- testing_results_summary_groups_score_i_summary.ALL[with(testing_results_summary_groups_score_i_summary.ALL, order(Count,Avg_Probability, decreasing = TRUE)),][1,]
-            # Soft voting (Probability priority) - Sort by Avg_Probability then count
-            #testing_results_summary_groups_score_i_max <- testing_results_summary_groups_score_i_summary.ALL[with(testing_results_summary_groups_score_i_summary.ALL, order(Avg_Probability, Count, decreasing = TRUE)),][1,]
-            
-            testing_results_summary_groups_score_i_max_full <- rbind(testing_results_summary_groups_score_i_max_full,testing_results_summary_groups_score_i_max)
-          }
+    ## model summary (by number of features) ##
+    for (FEATURES in c(min_test_features:max_test_features,"ALL")){
+      # select results for specific # of features #
+      if (FEATURES == "ALL"){
+        # "ALL" uses all Num_Features #
+        testing_results_summary_groups_score_i.feat <- testing_results_summary_groups_score_i
+      } else {
+        # select individual Num_Features
+        testing_results_summary_groups_score_i.feat <- testing_results_summary_groups_score_i[testing_results_summary_groups_score_i$Num_Features == FEATURES,]
       }
-    }
     
-    #### Output ####
-    if(print_report == TRUE){
-      write.table(testing_results_summary_groups_score_i_summary_full, file=paste0("4_",prefix,"_test_summary_aggregate.txt"), sep = "\t", col.names = NA)
-      write.table(testing_results_summary_groups_score_i_max_full, file=paste0("5_",prefix,"_test_summary.txt"), sep = "\t", col.names = NA)
-    }
+        ## model summary (combined) ##
+        # Count           Number of alg for that Num_Features that chooses the particular class as most probable
+        # Num_Features    Number of features used for prediction
+        # Class           Prediction Class 
+        # N_models        Number of Alg's tested for that Num_Features
+        # Agreement       Proportion of models that chooses that particular class as the most probable
+        n_models_i <- nrow(testing_results_summary_groups_score_i.feat)
+        testing_results_summary_groups_score_i_summary <- data.frame(summary(testing_results_summary_groups_score_i.feat$Class))
+        testing_results_summary_groups_score_i_summary$Num_Features <- FEATURES
+        testing_results_summary_groups_score_i_summary$Class <- as.character(row.names(testing_results_summary_groups_score_i_summary))
+        colnames(testing_results_summary_groups_score_i_summary) <- c("Count", "Num_Features","Class")
+        # avg probability from algs with same Num_Features
+        avg_prob <- aggregate(Probability ~ Class ,testing_results_summary_groups_score_i.feat, mean)
         
-    data$test_results_agg <- testing_results_summary_groups_score_i_summary_full
-    data$test_results <- testing_results_summary_groups_score_i_max_full
-    
-    return(data)
+        testing_results_summary_groups_score_i_summary <- merge(testing_results_summary_groups_score_i_summary, avg_prob, by="Class", all = TRUE, sort = TRUE)
+        testing_results_summary_groups_score_i_summary <- cbind(SAMPLE,testing_results_summary_groups_score_i_summary, n_models_i)
+        testing_results_summary_groups_score_i_summary$Model_Agreement <- testing_results_summary_groups_score_i_summary$Count/testing_results_summary_groups_score_i_summary$n_models_i
+        colnames(testing_results_summary_groups_score_i_summary) <- c("Sample","Class","Count","Num_Features" ,"Avg_Probability","N_models","Agreement")
+  
+        # combine individual results
+        testing_results_summary_groups_score_i_summary_full <- rbind(testing_results_summary_groups_score_i_summary_full,testing_results_summary_groups_score_i_summary)
+        
+        ##### Calculate most probable class ####
+        if (FEATURES == "ALL"){
+          testing_results_summary_groups_score_i_summary.ALL <- testing_results_summary_groups_score_i_summary[testing_results_summary_groups_score_i_summary$Num_Features == "ALL",]
+          # Hard voting (Count priority) - Sort by count then Avg_Probability
+          testing_results_summary_groups_score_i_max <- testing_results_summary_groups_score_i_summary.ALL[with(testing_results_summary_groups_score_i_summary.ALL, order(Count,Avg_Probability, decreasing = TRUE)),][1,]
+          # Soft voting (Probability priority) - Sort by Avg_Probability then count
+          #testing_results_summary_groups_score_i_max <- testing_results_summary_groups_score_i_summary.ALL[with(testing_results_summary_groups_score_i_summary.ALL, order(Avg_Probability, Count, decreasing = TRUE)),][1,]
+          
+          testing_results_summary_groups_score_i_max_full <- rbind(testing_results_summary_groups_score_i_max_full,testing_results_summary_groups_score_i_max)
+        }
+    }
+  }
+  
+  #### Output ####
+  
+  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+  
+  if(print_report == TRUE){
+    write.table(testing_results_summary_groups_score_i_summary_full, file=paste0(out_path,"/",prefix,"test_summary_aggregate.txt"), sep = "\t", col.names = NA)
+    write.table(testing_results_summary_groups_score_i_max_full, file=paste0(out_path,"/",prefix,"test_summary.txt"), sep = "\t", col.names = NA)
+  }
+      
+  data$test_results_agg <- testing_results_summary_groups_score_i_summary_full
+  data$test_results <- testing_results_summary_groups_score_i_max_full
+  
+  return(data)
 } # end of get test results
 
 
 #### Plot Data ####
 # v2 allow avg and avg_cal probabilities
 # updated visuals
-nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, thres_geomean = 0, report_type=c("Summary","Detailed"), print_report=FALSE){
+nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, thres_geomean = 0, report_type=c("Summary","Detailed"), print_report=FALSE, out_path=NULL){
   
   # Check #
   if(prob == "Avg_Cal_Probability" & is.null(data$test_results_agg$Avg_Cal_Probability)){
@@ -1157,6 +1304,11 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
   if(is.null(data$colour_code)){
     stop("[MSG] colour_code missing from data. Run nano.set.colour() first.")
   }
+  
+  if(!is.null(out_path) & !dir.exists(out_path)){
+    stop("[MSG] out_path doesn't exist.")
+  }
+  
   
   test_results <- data$test_results
   test_results_agg <- data$test_results_agg
@@ -1173,8 +1325,12 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
   if(prob == "Avg_Probability"){plot_title <-"Average probability"}
   if(prob == "Avg_Cal_Probability"){plot_title <-"Average calibrated probability"}
 
+  ### Output ###
+  
   t.result.list <- list()
-  pdf(file = paste0("5_",prefix,"_test_result_",report_type,"_plots.pdf"), width = 10.5, height = 8)
+  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+  
+  pdf(file = paste0(out_path,"/",prefix,"_test_result_",report_type,"_plots.pdf"), width = 10.5, height = 8)
   for (SAMPLE in unique(test_results_full$Sample)) {
     print(SAMPLE)
     
@@ -1363,8 +1519,8 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
   
   ##### Output #####
   if(print_report == TRUE){
-    write.table(test_results_agg, file=paste0("4_",prefix,"_test_summary_aggregate.txt"), sep = "\t", col.names = NA)
-    write.table(test_results, file=paste0("5_",prefix,"_test_summary.txt"), sep = "\t", col.names = NA)
+    write.table(test_results_agg, file=paste0(out_path,"/",prefix,"_test_summary_aggregate.txt"), sep = "\t", col.names = NA)
+    write.table(test_results, file=paste0(out_path,"/",prefix,"_test_summary.txt"), sep = "\t", col.names = NA)
   }
   
   data$test_summary <- t.result.list
@@ -1491,14 +1647,20 @@ nano.cal_model <- function(prefix, cal_labels.df, method=c("glm","glmnet")) {
 # Calibrate "Avg_Probability"
 # Required column: "obs" for ground truth, "Class" for multi-class prediction made from classifier, "Sample" for Names for where the Avg_Probability originated, Avg_Probability for avg. probability predicted from the classifier.
 #' @param cal_labels.df
+#' @param out_path outpath location
 #' @return Cal_models list and trained models saved as RDS
 #' @example
 #' library(ResourceSelection)
 #' nano.calibrate(cal_labels.df)
-nano.calibrate <- function(data, Cal_models, print_report = FALSE, method=c("glm","glmnet")){
+nano.calibrate <- function(data, Cal_models, print_report = FALSE, method=c("glm","glmnet"), out_path=NULL){
   if(is.null(grep("Avg_Cal_Probability", colnames(data$test_results_agg)))){
     stop("[MSG] Data set has been calibrated already")
   }
+  
+  if(!is.null(out_path) & !dir.exists(out_path)){
+    stop("[MSG] out_path doesn't exist.")
+  }
+  
   print(paste0("[MSG] Calibrate Avg_Probability..."))
   test_results_agg <- data$test_results_agg
   
@@ -1566,11 +1728,13 @@ nano.calibrate <- function(data, Cal_models, print_report = FALSE, method=c("glm
     test_results_agg.ALL.full <- rbind(test_results_agg.ALL.full,test_results_agg.ALL.i)
   }
   
-  ##### Output #####
+  ### Output ###
+  
+  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
   
   if(print_report == TRUE){
-    write.table(test_results_agg, file=paste0("4_",prefix,"_test_summary_aggregate.txt"), sep = "\t", col.names = NA)
-    write.table(test_results_agg.ALL.full, file=paste0("5_",prefix,"_test_summary.txt"), sep = "\t", col.names = NA)
+    write.table(test_results_agg, file=paste0(out_path,"/",prefix,"_test_summary_aggregate.txt"), sep = "\t", col.names = NA)
+    write.table(test_results_agg.ALL.full, file=paste0(out_path,"/",prefix,"_test_summary.txt"), sep = "\t", col.names = NA)
   }
   data$test_results_agg <- test_results_agg
   data$test_results <- test_results_agg.ALL.full
@@ -1650,24 +1814,32 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","plot
       
       ##### Plots #####
       PlotTitle <- prefix
-      mat <- data.df
-      mat$Sample <- row.names(mat)
-      m <- melt(mat, id.vars = "Sample")
+
+      # obtain MDS matrix #
       mds <- limma::plotMDS(data.df,pch=19, main=PlotTitle)
       group[is.na(group)] <- "black"
-      mds.anno <- merge(mds$cmdscale.out,group, by="row.names")
+      #mds.anno <- merge(mds$cmdscale.out,group, by="row.names") # limma depreciated since 3.48.0 
+      mds_2d_matrix <- data.frame(x=mds$x, y=mds$y)
+      row.names(mds_2d_matrix) <- row.names(mds$distance.matrix.squared)
+      mds.anno <- merge(mds_2d_matrix,group, by="row.names")
+      
       colnames(mds.anno) <- c("Sample","X","Y","Group")
       mds.p <- ggplot(mds.anno, aes(x=X, y=Y, label=Sample, color=Group)) + 
-        geom_point() +
+        geom_point(size=2) +
         scale_color_manual(values = as.character(col_code$Group_Colour)) +
         #scale_color_manual(values = as.character(groupcol)) + # not correct
-        xlab(label = "Leading logFC dim")+
-        ylab(label = "Leading logFC dim")+
+        xlab(label = "MDS1")+
+        ylab(label = "MDS2")+
         labs(title = paste0(PlotTitle," MDS Plot"))+
+        theme_minimal() +
+        theme(aspect.ratio=1) + #squre shape
+        theme(text = element_text(size = 16)) +
+        theme(axis.ticks = element_line(size = 0.5))+
         theme(plot.title = element_text(hjust = 0.5)) +
-        theme_minimal()
-      #nudge_y_value <- (max(mds.anno$Y) - min(mds.anno$Y))/10
-    
+        theme(panel.grid.major = element_blank(), 
+              panel.grid.minor = element_blank(),
+              panel.background = element_rect(colour = "black", size=1))
+
       mds.p.plotly <- ggplotly(mds.p)
       ## box plot ##
       if (plot_type == "boxplot"){
@@ -1723,6 +1895,10 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
     print(paste0("[MSG] Torchia et. al., 2016 ATRT Subgroups detected:"))
     print(Group_lables)
     col_code <- data.frame(Group=as.factor(c("Group1","Group2A","Group2B")),Group_Colour=c("red","blue","green"), stringsAsFactors = FALSE)
+  } else if (all(Group_lables %in% c("SHH","TYR","MYC"))){
+    print(paste0("[MSG] Ho et. al., 2019 ATRT Subgroups detected:"))
+    print(Group_lables)
+    col_code <- data.frame(Group=as.factor(c("SHH","TYR","MYC")),Group_Colour=c("4074E5","DD1D06","23AE2E"), stringsAsFactors = FALSE)
   } else {
     print(paste0("[MSG] Using custom lables:"))
     print(Group_lables)
@@ -1740,15 +1916,28 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 # requires nano.plot to work properly
 # 'Class' reserved for prediction results
 # 'Subgroup' reserved for ground truth
+#' @param prefix
+#' @param use_class
+#' @param Prob_range
+#' @param prob
+#' @param anno_table
+#' @param GeoMean_thres
+#' @param out_path output location
+#' @param in_path input location for *_test_summary.txt. Default to 
 
-nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probability", anno_table, GeoMean_thres=0){
+nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probability", anno_table, GeoMean_thres=0, out_path=NULL, input_path=getwd()){
+  
+  if(!is.null(out_path) & !dir.exists(out_path)){
+    stop("[MSG] out_path doesn't exist.")
+  }
+  
   anno <- anno_table # subgroup list
   summary_file.df <- summary_file.agg.df <- summary_file.full.df <- data.frame()
   Test_Summary_Overall <- Test_Summary_Stats <- Test_Summary <- conf_matrix_list <-list()
   WD <- prefix
   ## Load Recursively ##
   # test summary
-  for (summary_file in list.files(path=".", pattern = paste0(prefix,"*_test_summary.txt"), recursive = FALSE)){
+  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,"*_test_summary.txt"), recursive = FALSE)){
        if(is.null(summary_file)){
          stop("[MSG] Can't find *test_summary.txt. Did you run nano.plot()?")
        }      
@@ -1756,7 +1945,7 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
     summary_file.df <- rbind(summary_file.df,summary_file.df.i)
   }
   # test_summary_aggregate
-  for (summary_file in list.files(path=".", pattern = paste0(prefix,"*_test_summary_aggregate.txt"), recursive = FALSE)){
+  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,"*_test_summary_aggregate.txt"), recursive = FALSE)){
     if(is.null(summary_file)){
       stop("[MSG] Can't find *_test_summary_aggregate.txt. Did you run nano.plot()?")
     } 
@@ -1764,7 +1953,7 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
     summary_file.agg.df <- rbind(summary_file.agg.df,summary_file.agg.df.i)
   }
   #testing_summary_full
-  for (summary_file in list.files(path=".", pattern = paste0(prefix,"*_testing_summary_full.txt"), recursive = FALSE)){
+  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,"*_testing_summary_full.txt"), recursive = FALSE)){
     if(is.null(summary_file)){
       stop("[MSG] Can't find *_testing_summary_full.txt. Did you run nano.plot()?")
     } 
@@ -1876,9 +2065,9 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
   length(Test_Summary_Stats)
   # export as excel #
   #Sys.setenv("R_ZIPCMD" = "C:/Rtools/bin/zip.exe")
-  openxlsx::write.xlsx(Test_Summary_Stats, file = paste0(prefix,"_Test_Summary_Stats.xlsx"))
-  openxlsx::write.xlsx(Test_Summary, file = paste0(prefix,"_Test_Summary.xlsx"))
-  saveRDS(conf_matrix_list, file = paste0(prefix,"_conf_matrix_list.RDS"))
+  openxlsx::write.xlsx(Test_Summary_Stats, file = paste0(out_path,"/",prefix,"_Test_Summary_Stats.xlsx"))
+  openxlsx::write.xlsx(Test_Summary, file = paste0(out_path,"/",prefix,"_Test_Summary.xlsx"))
+  saveRDS(conf_matrix_list, file = paste0(out_path,"/",prefix,"_conf_matrix_list.RDS"))
   
   Test_Summary_Overall[["overall_accuracy"]] <- sum(Test_Summary[[1]]$Matching_class) / length(Test_Summary[[1]]$Matching_class)
   Test_Summary_Overall[["confusion_matrix"]] <- conf_matrix_list[[1]]$table
@@ -1889,7 +2078,7 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
 
 #### Plot MDS ####
 # v2 extracting group membership from test results. Supply "memberships" to override results from training and testing
-# Plot both training and testing data by merging main.data and test results
+# Plot both training (train.data.main) and testing (norm.t) data by merging main.data and test results.
 # Require nano.set.colour() to be ran first to determine colour_code
 # Require nano.test() to be able to obtain testing results from test.df
 # membership and gene_list are optional
@@ -1898,6 +2087,8 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
 #' @param data_test - normalized data used for testing
 #' @param memberships - dataframe of sample name (row.names) and subgroup. NULL (default)
 #' @param gene_list - select genes for plotting. NULL (default) for no filtering
+#' @param plot_type - different plot types
+#' @param train_ellipse - add ellipse around training samples when set to TRUE. FALSE (default)
 #' @return plot
 #' @example
 #'  library(limma) #plotMDS
@@ -1905,7 +2096,7 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
 #'  library(reshape2)
 #' nano.MDS(prefix = prefix, data=train, plot_type = "ggplot",data_name = "norm.t")
 
-nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, plot_type = c("plot","ggplot","ggplot_label", "plotly"), memberships=NULL, gene_list=NULL){
+nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, plot_type = c("plot","ggplot","ggplot_label", "ggplot_label_test", "plotly"), train_ellipse=FALSE, memberships=NULL, gene_list=NULL, omit_sample=NULL){
 
   data_train <- train.data$train.data.main
   data_test <- test.data$norm.t
@@ -1958,6 +2149,7 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
       print(paste0("[MSG] Using gene list m=",length(gene_list)))
   }
 
+  ##### Plots #####
   print(paste0(gene_list))
   data.df <- data.df[,c(gene_list,"Group","Type")]
     
@@ -1969,35 +2161,62 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
   library(plotly)
   library(reshape2)
   
-  ##### Plots #####
   PlotTitle <- prefix
+  if(!is.null(omit_sample)){
+    print(paste0("[MSG] Omitting samples from plot:"))
+    print(omit_sample)
+    data.df <- data.df[!(row.names(data.df) %in% omit_sample),] 
+  }
+  
+  pdf(file = NULL)
   mds <- limma::plotMDS(t(subset(data.df, select = -c(Group,Type))),pch=19, main=PlotTitle)
-  mds.anno <- merge(mds$cmdscale.out,group, by="row.names")
+  dev.off()
+  #mds.anno <- merge(mds$cmdscale.out,group, by="row.names")# limma depreciated since 3.48.0 
+  mds_2d_matrix <- data.frame(x=mds$x, y=mds$y)
+  row.names(mds_2d_matrix) <- row.names(mds$distance.matrix.squared)
+  mds.anno <- merge(mds_2d_matrix,group, by="row.names")
   colnames(mds.anno) <- c("Sample","X","Y","Group","Type")
+  
   mds.p <- ggplot(mds.anno, aes(x=X, y=Y, label=Sample, color=Group,group=Type)) + 
     geom_point(aes(shape=Type), size=2) +
     scale_color_manual(values = as.character(col_code$Group_Colour)) +
-    scale_shape_manual(values=c(2, 19)) +
-    xlab(label = "Leading logFC dim")+
-    ylab(label = "Leading logFC dim")+
+    scale_shape_manual(values=c(1, 19)) +
+    xlab(label = "MDS1")+
+    ylab(label = "MDS2")+
     labs(title = paste0(PlotTitle," Combined Train and Test MDS Plot"))+
     theme_minimal() +
-    theme(plot.title = element_text(hjust = 0.5))
-  nudge_y_value <- (max(mds.anno$Y) - min(mds.anno$Y))/10
+    theme(aspect.ratio=1) + #squre shape
+    theme(axis.ticks = element_line(size = 0.5))+
+    theme(text = element_text(size = 16)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.background = element_rect(colour = "black", size=1))
   
-  mds.p.plotly <- ggplotly(mds.p)
-  ## MDS ggplot ##
-  if (plot_type == "ggplot"){
-    print(mds.p)
-  } else if (plot_type == "ggplot_label"){
-    mds.p <- mds.p +geom_text_repel(aes(label = Sample))
-    print(mds.p)
-  }
-  
+
   ## MDS plotly ##
   if (plot_type == "plotly"){
+    mds.p.plotly <- ggplotly(mds.p)
     print(mds.p.plotly)
   }
+  
+  # add labels #
+  if (plot_type == "ggplot"){
+    #print(mds.p)
+  } else if (plot_type == "ggplot_label"){
+    mds.p <- mds.p +geom_text_repel(aes(label = Sample), show.legend = FALSE)
+  } else if (plot_type == "ggplot_label_test"){
+    mds.p <- mds.p +geom_text_repel(data=mds.p$data[mds.p$data$Type == "Test",], aes(label = Sample), show.legend = FALSE)
+  }
+  
+  #add Ellipse#
+  if(train_ellipse==TRUE){
+    # The t-distribution is used as an alternative to the normal distribution when sample sizes are small in order to estimate confidence or determine critical values that an observation is a given distance from the mean
+    mds.p <- mds.p + stat_ellipse(data=mds.p$data[mds.p$data$Type == "Train",], aes(group=Group),type = "t", show.legend = FALSE, linetype=4) 
+  }
+  
+  #print ggplot#
+  print(mds.p)
   
 } 
 
@@ -2043,229 +2262,3 @@ nano.feat.select <- function(nanostring_data){
     Boruta.obj[["Stats"]] <- boruta.nanostring_data.fix_df
     return(Boruta.obj)
 }
-
-
-
-
-
-#### TEST Plot Data ####
-# v2 allow avg and avg_cal probabilities
-# updated visuals
-nano.plot.TEST <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, thres_geomean = 100, report_type=c("Summary","Detailed"), print_report=FALSE){
-  
-  # Check #
-  # if(prob == "Avg_Cal_Probability" & is.null(data$test_results_agg$Avg_Cal_Probability)){
-  #   stop("[MSG] Avg_Cal_Probability missing from data. Run nano.calibrate() first to plot results from calibrated probability or proceed with Avg_Probability.")
-  # } else if(prob == "Avg_Cal_Probability" & is.null(data$test_results_agg$Avg_Cal_Probability)){
-  #   stop("[MSG] Avg_Probability missing from data. Run get.nano.test.results() first.")
-  # }
-  # 
-  # if(!is.numeric(thres_avg_prob)){stop("[MSG] thres_avg_prob must be numeric")}
-  # 
-  # if(is.null(data$colour_code)){
-  #   stop("[MSG] colour_code missing from data. Run nano.set.colour() first.")
-  # }
-  
-  test_results <- data$test_results
-  test_results_agg <- data$test_results_agg
-  test_results_full <- data$test_results_full
-  prenorm_qc <- data$prenorm_qc
-  col_code <- data$colour_code
-  
-  library(gridExtra)
-  library(ggpubr)
-  
-  test_results$prob <- test_results[,prob]
-  test_results_agg$prob <- test_results_agg[,prob]
-  
-  if(prob == "Avg_Probability"){plot_title <-"Average probability"}
-  if(prob == "Avg_Cal_Probability"){plot_title <-"Average calibrated probability"}
-  
-  pdf(file = paste0("5_",prefix,"_test_result_",report_type,"_plots.pdf"), width = 10.5, height = 8)
-  for (SAMPLE in unique(test_results_full$Sample)) {
-    print(SAMPLE)
-    
-    #### Result stats ####
-    result.i <- c(test_results[test_results$Sample == SAMPLE,], prenorm_qc[prenorm_qc$Sample == SAMPLE,])
-    
-    if (result.i$GeoMean >= thres_geomean){
-      remarks1 <- "QC - PASS"
-    } else if (result.i$GeoMean < thres_geomean) {
-      remarks1 <- "QC - FAIL"
-    } 
-    
-    if (result.i[prob] >= thres_avg_prob){
-      remarks2 <- "High Confidence"
-    } else if (result.i[prob] < thres_avg_prob) {
-      remarks2 <- "Low Confidence"
-    } 
-    
-    t.result <- t(data.frame("Sample" = result.i$Sample, "Class" = result.i$Class, "Class Prob" = paste0(round(as.numeric(result.i[prob]), 4) * 100, "%"), "Prob Type"=plot_title, "Models Tested" = result.i$N_models, "Models Agreement" =  paste0(round(result.i$Agreement * 100, 4),"%"), "GeoMean" = result.i$GeoMean, "CV" = result.i$CV, "Remarks1" = remarks1, "Remarks2" = remarks2))
-    colnames(t.result) <- "Summary Table"
-    
-    ##### Plots ####
-    color_chart <- col_code$Group_Colour
-    names(color_chart) <- col_code$Group
-    ## Format tables ##
-    agg.table.i <- test_results_agg[test_results_agg$Sample == SAMPLE,]
-    test_results_full.i <- test_results_full[test_results_full$Sample == SAMPLE,]
-    
-    ## probability by algorithms ##
-    # by Num_Features != "ALL"
-    agg.i <- agg.table.i[agg.table.i$Num_Features != "ALL",]
-    agg.m <- melt(agg.i[c("Num_Features",prob,"Class")], variable_name = "Class", id.vars=c("Num_Features",prob,"Class"))
-    agg.m[is.na(agg.m)] <- 0 # for cases with no predictions probability
-    agg.p <- ggline(agg.m, x = "Num_Features", y = prob,
-                    linetype = "Class",
-                    color = "Class",
-                    palette = color_chart,
-                    
-                    #facet.by = "Class",
-                    nrow = 1,
-                    size = 0.5,
-                    main = paste0(SAMPLE," - Calibrated probability by features"),
-                    xlab = "Number of Genes",
-                    ylab = prob
-    ) +
-      scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.2)) +
-      #scale_x_continuous(breaks = seq(from = 0, to = 30 ,by = 1)) +
-      coord_cartesian(ylim = c(0, 1))
-    
-    ## cleveland plot ##
-    agg.ALL <- agg.table.i[agg.table.i$Num_Features == "ALL",]
-    Groups <- data.frame(Class=col_code$Group)
-    agg.ALL <- merge(Groups, agg.ALL,by = "Class", all.x = TRUE) # make sure all three groups are present
-    agg.ALL[is.na(agg.ALL)] <- 0 # for cases with no predictions
-    
-    agg.ALL$Agreement <- as.numeric(round(agg.ALL$Agreement, digits = 4) * 100)
-    agg.ALL.p <- ggdotchart(agg.ALL, x= "Class",y = prob,
-                            linetype = "Class",
-                            color = "Class",
-                            palette = color_chart,
-                            dot.size = 5,
-                            nrow = 1,
-                            size = 0.5,
-                            legend="",
-                            xlab = ""
-    ) +
-      scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.2)) +
-      coord_cartesian(ylim = c(0, 1))+
-      #theme(plot.title = element_text(hjust = 0.0)) +
-      theme_minimal()+
-      theme(panel.border = element_blank(), panel.grid.major = element_blank(),
-            panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))+
-      #theme(axis.text = element_text(size=10))+
-      geom_hline(yintercept=seq(0,1,0.2), linetype="dashed", colour = "grey70")
-    
-    # reverse order to order from bottom up#
-    agg.ALL$Class <- factor(agg.ALL$Class, levels = rev(levels(agg.ALL$Class)))
-    agg.ALL.bar <- ggplot(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class, label = paste0(Agreement,"%"))) + 
-      geom_bar(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class),
-               stat="identity", width = 1) + 
-      theme_minimal() +
-      scale_fill_manual(values = color_chart) +
-      geom_text(position = position_stack(vjust = 0.5), size = 4) +  # add percentage
-      theme(legend.position="", # remove legend and axis text
-            #axis.text.y=element_blank(),
-            axis.text.x=element_blank(),
-            axis.title.x=element_blank()
-      )  +
-      scale_y_continuous(expand = c(0,0))  # remove space between axis and values
-    
-    
-    # add margin (note need ggplot2::margin)
-    agg.ALL.bar <- agg.ALL.bar + theme(
-      panel.background = element_rect(fill = "white"),
-      #plot.margin = ggplot2::margin(60, 10, 70, 20, "pt"), #top, right, bottom, left
-      plot.background = element_rect(
-        fill = "white",
-        colour = "white",
-        size = 1
-      )
-    ) 
-    #+ ggtitle(paste0("Fig.2 - Models agreement"))+
-    #  theme(plot.title = element_text(hjust = 0.0))
-    
-    # horiz bar plot #
-    all.horbar <- test_results_full.i
-    all.horbar$Order <- row.names(all.horbar)
-    #all.horbar$Class <- factor(all.horbar$Class, levels = c("Group2B","Group2A","Group1"))
-    all.horbar.p <- ggbarplot(all.horbar, x="Order",y="Probability",                    
-                              color = "Class",
-                              fill = "Class",
-                              palette = color_chart,
-                              sort.by.groups = TRUE,
-                              rotate = TRUE,
-                              sort.val = "asc",
-                              legend="") + 
-      theme_minimal() +
-      ylab(NULL) +
-      xlab(NULL) +
-      theme(axis.text.y = element_blank(), 
-            axis.ticks.y = element_blank(),
-            axis.text.x = element_blank()
-      ) +
-      theme(legend.position="")
-    
-    ## raw line plot ##
-    raw.i <- test_results_full[test_results_full$Sample == SAMPLE,]
-    raw.m <- melt(raw.i[c("Num_Features","Probability","Class","Alg")], variable_name = "Class", id.vars=c("Num_Features","Probability","Class","Alg"))
-    raw.p <- ggline(raw.m, x = "Num_Features", y = "Probability",
-                    linetype = "Class",
-                    color = "Class",
-                    palette = color_chart,
-                    facet.by = "Alg",
-                    nrow = 5,
-                    size = 0.5,
-                    main = paste0("Fig.3 - ",plot_title, " by algorithms"),
-                    xlab = "N_features",
-                    ylab = prob
-    ) +
-      scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.2)) +
-      scale_x_continuous(breaks = seq(from = 0, to = 30 ,by = 1)) +
-      coord_cartesian(ylim = c(0, 1))+
-      theme(plot.title = element_text(hjust = 0.0))
-    
-    ##### Format Report ####
-    
-    if (report_type == "Detailed"){
-      grid.arrange(
-        top = paste0("Test Result Details - ",SAMPLE),
-        tableGrob(t.result),
-        #agg.p,
-        agg.ALL.p,
-        agg.ALL.bar,
-        raw.p,
-        ncol = 4,
-        #widths = c(1,2)
-        widths = c(1,0.5,0.5,2),
-        bottom=paste0("ATRT Classifier - For Research Only")
-        
-      )
-    } else if(report_type == "Summary"){
-      #plot_grid(tableGrob(t.result), agg.ALL.p, agg.ALL.bar = c('A', 'B','C'))
-      grid.arrange(
-        top = paste0("Test Result Summary - ",SAMPLE),
-        tableGrob(t.result),
-        arrangeGrob(arrangeGrob(agg.ALL.bar,all.horbar.p, ncol=2, widths = c(0.8,1),top=paste0("Fig.1 - Models agreement")),
-                    arrangeGrob(agg.ALL.p, widths = 1, top=paste0("Fig.2 - ",plot_title," by class")),
-                    ncol=1),
-        
-        ncol = 2,
-        #widths = c(2,1,0.5),
-        bottom=paste0("ATRT Classifier - For Research Only")
-        #layout_matrix=matrix(c(1,2,1,3), byrow=TRUE,ncol = 2)
-        
-      )
-    }
-  } # for loop
-  
-  dev.off()
-  
-  ##### Output #####
-  if(print_report == TRUE){
-    write.table(test_results_agg, file=paste0("4_",prefix,"_test_summary_aggregate.txt"), sep = "\t", col.names = NA)
-    write.table(test_results, file=paste0("5_",prefix,"_test_summary.txt"), sep = "\t", col.names = NA)
-  }
-  
-} # end of plot
