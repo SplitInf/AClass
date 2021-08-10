@@ -1,7 +1,17 @@
 # AClass
 
-# 0.1.1-beta	  Changed nano.load() behavior to not load recurrsively to prevent mixing of batches 
-	
+# 0.1.2-beta	Added support for Ho et al. colour scheme
+		Added function to specify output path
+		training_memberships_link renamed to training_memberships_path
+		Changed file output naming scheme. No longer have numeric value before filenames.
+		prefix is now optional
+		Various bug fixes
+
+# 0.1.1-beta	Added support for R 4.1.0 and limma 3.48.1. Various bug fixes
+		Added batch.process.raw()
+		Changed nano.load() behavior to not load recurrsively to prevent mixing of batches 
+
+# 0.1.0-beta	Encompass the following changes from initial release	
 # version 200117  Added feature to allow SampleContent option in process.raw() and nano.norm().
 #                 Adding feature to allow include_samples_path and omit_samples_path options in classify.data() 
 #                 Fixed nano.norm(), nano.prep() and nano.plot() to handle single sample.
