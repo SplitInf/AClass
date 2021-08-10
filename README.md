@@ -5,6 +5,7 @@
 		training_memberships_link renamed to training_memberships_path
 		Changed file output naming scheme. No longer have numeric value before filenames.
 		prefix is now optional
+		renamed AClass to 210810
 		Various bug fixes
 
 # 0.1.1-beta	Added support for R 4.1.0 and limma 3.48.1. Various bug fixes
