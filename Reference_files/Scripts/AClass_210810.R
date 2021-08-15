@@ -220,23 +220,31 @@ process.raw <- function(work_path=getwd(), raw_path=NULL, keep_file_path=NULL, o
   out_path <- paste0(work_path,"/",prj_prefix)
   dir.create(out_path, showWarnings = FALSE)
 
-  raw.obj$run_id <- prj_prefix
-  
   # [1] load data
   print(paste0("=nano.load="))
   raw.obj <- nano.load(raw_path = raw_path, keep_file_path=keep_file_path, omit_file_path=omit_file_path)
-
-  # [2] Prenorm qc
-  print(paste0("=nano.prenorm.qc="))
-  raw.obj <- nano.prenorm.qc(data=raw.obj, prefix = prefix, out_path = out_path)
-  # [3] Normalization
-  print(paste0("=nano.norm="))
-  raw.obj <- nano.norm(data=raw.obj, SampleContent = SampleContent) 
-  ## [4] prep data
-  print(paste0("=nano.prep="))
-  raw.obj <- nano.prep(data=raw.obj)# transpose and check for zero's
   
-  setwd(work_path) # return to original path prevents nested dirs
+  ## check if samples loaded ##
+  raw_n <- ncol(raw.obj$raw)-3
+
+  raw.obj$run_info$run_id <- prj_prefix
+  
+  # [2] Prenorm qc
+  if(raw_n > 0){
+    print(paste0("=nano.prenorm.qc="))
+    raw.obj <- nano.prenorm.qc(data=raw.obj, prefix = prefix, out_path = out_path)
+  }
+  # [3] Normalization
+  if(raw_n > 3){
+    print(paste0("=nano.norm="))
+    raw.obj <- nano.norm(data=raw.obj, SampleContent = SampleContent) 
+  }
+  ## [4] prep data
+  if(raw_n > 0){
+    print(paste0("=nano.prep="))
+    raw.obj <- nano.prep(data=raw.obj)# transpose and check for zero's
+  }
+
   return(raw.obj)
   
 }
@@ -253,7 +261,7 @@ batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep
   raw_dir <- apply(raw_dir,1,function(x) unlist(strsplit(gsub(paste0(raw_dir_path,"/"),"",x),split = "/"))[1] )
   raw_dir <- unique(raw_dir)
   
-  train.full <- list()
+  raw.obj <- list()
   for (i in raw_dir) {
     print(paste0("[MGS] Processing dir: ", i))
     raw_path_i <- paste0(raw_dir_path,"/",i)
@@ -262,32 +270,32 @@ batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep
 
     ## run_info ##
     # csv #
-    if(is.null(train.full$run_info$csv)) {
-      train.full$run_info$csv <- train.i$run_info$csv
+    if(is.null(raw.obj$run_info$csv)) {
+      raw.obj$run_info$csv <- train.i$run_info$csv
     } else {
-      train.full$run_info$csv <- c(train.full$run_info$csv,train.i$run_info$csv)
+      raw.obj$run_info$csv <- c(raw.obj$run_info$csv,train.i$run_info$csv)
     }
     # samples_found #
-    if(is.null(train.full$run_info$samples_found)) {
-      train.full$run_info$samples_found <- train.i$run_info$samples_found
+    if(is.null(raw.obj$run_info$samples_found)) {
+      raw.obj$run_info$samples_found <- train.i$run_info$samples_found
     } else {
       samples_found.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_found,split = " "))[1])
-      samples_found.full <- as.numeric(unlist(strsplit(train.full$run_info$samples_found,split = " "))[1])
-      train.full$run_info$samples_found <- paste0(samples_found.i+samples_found.full, " samples found.")
+      samples_found.full <- as.numeric(unlist(strsplit(raw.obj$run_info$samples_found,split = " "))[1])
+      raw.obj$run_info$samples_found <- paste0(samples_found.i+samples_found.full, " samples found.")
     }
     # samples_loaded #
-    if(is.null(train.full$run_info$samples_loaded)) {
-      train.full$run_info$samples_loaded <- train.i$run_info$samples_loaded
+    if(is.null(raw.obj$run_info$samples_loaded)) {
+      raw.obj$run_info$samples_loaded <- train.i$run_info$samples_loaded
     } else {
       samples_loaded.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_loaded,split = " "))[1])
-      samples_loaded.full <- as.numeric(unlist(strsplit(train.full$run_info$samples_loaded,split = " "))[1])
-      train.full$run_info$samples_loaded <- paste0(samples_loaded.i+samples_loaded.full, " samples loaded.")
+      samples_loaded.full <- as.numeric(unlist(strsplit(raw.obj$run_info$samples_loaded,split = " "))[1])
+      raw.obj$run_info$samples_loaded <- paste0(samples_loaded.i+samples_loaded.full, " samples loaded.")
     }
     ## run_id ##
-    if(is.null(train.full$run_id)) {
-      train.full$run_id <- train.i$run_id
+    if(is.null(raw.obj$run_info$run_id)) {
+      raw.obj$run_info$run_id <- train.i$run_info$run_id
     } else {
-      train.full$run_id <- c(train.full$run_id,train.i$run_id)
+      raw.obj$run_info$run_id <- c(raw.obj$run_info$run_id,train.i$run_info$run_id)
     }
     ## $raw, $prenorm_qc $norm, $norm.t
     merge_df_by_rowname <- function(a,b,df){
@@ -303,29 +311,29 @@ batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep
       return(a[[df]])
     }
     
-    if(is.null(train.full$raw)){
-      train.full$raw <- train.i$raw
+    if(is.null(raw.obj$raw)){
+      raw.obj$raw <- train.i$raw
     } else {
-      train.full$raw <- merge_df_by_rowname(a=train.full, b=train.i, df="raw")
+      raw.obj$raw <- merge_df_by_rowname(a=raw.obj, b=train.i, df="raw")
     }
     
-    if(is.null(train.full$prenorm_qc)){
-      train.full$prenorm_qc <- train.i$prenorm_qc
+    if(is.null(raw.obj$prenorm_qc)){
+      raw.obj$prenorm_qc <- train.i$prenorm_qc
     } else {
-      train.full$prenorm_qc <- rbind(train.full$prenorm_qc, train.i$prenorm_qc)
+      raw.obj$prenorm_qc <- rbind(raw.obj$prenorm_qc, train.i$prenorm_qc)
     }
     
-    if(is.null(train.full$norm)){
-      train.full$norm <- train.i$norm
+    if(is.null(raw.obj$norm)){
+      raw.obj$norm <- train.i$norm
     } else {
-      train.full$norm <- merge_df_by_rowname(a=train.full, b=train.i, df="norm")
+      raw.obj$norm <- merge_df_by_rowname(a=raw.obj, b=train.i, df="norm")
     }
     
-    train.full$norm.t <- as.data.frame(t(train.full$norm))
+    raw.obj$norm.t <- as.data.frame(t(raw.obj$norm))
     
   }
   
-  return(train.full)
+  return(raw.obj)
 }
 
 ##### classify.data #####
@@ -335,7 +343,7 @@ classify.data <- function(work_path=getwd(), data, prefix, training_model_obj, a
   test.obj <- data
   
   # default to use run_id as out_path unless otherwise provided
-  if (!is.null(test.obj$run_id)){
+  if (!is.null(test.obj$run_info$run_id)){
     prj_prefix <- test.obj$run_id
     out_path <- paste0(work_path,"/",prj_prefix)
   }
@@ -364,7 +372,7 @@ classify.data <- function(work_path=getwd(), data, prefix, training_model_obj, a
   
   # [7] Consolidate results
   # choose min max range based on model accuracy
-  test.obj <- get.nano.test.results(prefix,test.obj, outpath = outpath)
+  test.obj <- get.nano.test.results(prefix,test.obj, out_path = out_path)
   saveRDS(test.obj, file = paste0(out_path,"/",prefix,"_test.data.tested.RDS"))
   
   # [8] Set Colour Code based on pre-trained models
@@ -443,15 +451,16 @@ nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="") 
     raw.merge <- raw.merge[,!colnames(raw.merge) %in% test.omit]
   }
   
-  raw.summary[["samples_loaded"]] <- paste0(n_sample, " samples loaded.")
+  n_sample_loaded <- ifelse(ncol(raw.merge)-3 <0,0,ncol(raw.merge)-3)
+  raw.summary[["samples_loaded"]] <- paste0(n_sample_loaded, " samples loaded.")
   print(paste0("[MSG] ",raw.summary[["samples_loaded"]])) #7
   raw.loaded <- list()
 
   raw.loaded$run_info <- raw.summary
   raw.loaded$raw <- raw.merge
-  if (n_sample == 0){
+  if (n_sample_loaded == 0){
     stop("[MSG] No samples were loaded. Check file omit list.")
-  } else {}
+  }
   return(raw.loaded)
 }
 
@@ -471,7 +480,7 @@ nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="") 
 #' nano.prenorm.qc(test.raw)
 nano.prenorm.qc <- function(data, code_class = "Housekeeping", prefix, out_path=NULL){
   raw_data <- data$raw
-  
+
   if(!is.null(out_path) & !dir.exists(out_path)){
     stop("[MSG] out_path doesn't exist.")
   }
@@ -518,6 +527,7 @@ nano.prenorm.qc <- function(data, code_class = "Housekeeping", prefix, out_path=
   #p.qc <- ggplot(aes(x = Sample, y = value), data = hk.prenorm_qc.melt)  # plot both mean and geomean
   p.qc <- ggplot(aes(x = Sample, y = value), data = subset(hk.prenorm_qc.melt, hk.prenorm_qc.melt$variable == "GeoMean"))  # geomean only
   max_val <- max(hk.prenorm_qc.melt[hk.prenorm_qc.melt$variable == "GeoMean",]$value)
+  print(paste0("[troubleshoot] max_val:", max_val))
   p.qc <- p.qc + geom_boxplot(aes(color= variable)) +
     ggtitle("Geo_Mean") +
     theme(axis.text.x=element_text(angle = 90, hjust = 0),
@@ -2185,7 +2195,7 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
     data.df <- data.df[!(row.names(data.df) %in% omit_sample),] 
   }
   
-  pdf(file = NULL)
+  pdf(file = NULL) # prevent writing file
   mds <- limma::plotMDS(t(subset(data.df, select = -c(Group,Type))),pch=19, main=PlotTitle)
   dev.off()
   #mds.anno <- merge(mds$cmdscale.out,group, by="row.names")# limma depreciated since 3.48.0 
@@ -2195,7 +2205,7 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
   colnames(mds.anno) <- c("Sample","X","Y","Group","Type")
   
   mds.p <- ggplot(mds.anno, aes(x=X, y=Y, label=Sample, color=Group,group=Type)) + 
-    geom_point(aes(shape=Type), size=2) +
+    geom_point(aes(shape=Type), size=3) +
     scale_color_manual(values = as.character(col_code$Group_Colour)) +
     scale_shape_manual(values=c(1, 19)) +
     xlab(label = "MDS1")+
@@ -2210,31 +2220,26 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
           panel.grid.minor = element_blank(),
           panel.background = element_rect(colour = "black", size=1))
   
-
-  ## MDS plotly ##
-  if (plot_type == "plotly"){
-    mds.p.plotly <- ggplotly(mds.p)
-    print(mds.p.plotly)
-  }
-  
-  # add labels #
-  if (plot_type == "ggplot"){
-    #print(mds.p)
-  } else if (plot_type == "ggplot_label"){
-    mds.p <- mds.p +geom_text_repel(aes(label = Sample), show.legend = FALSE)
-  } else if (plot_type == "ggplot_label_test"){
-    mds.p <- mds.p +geom_text_repel(data=mds.p$data[mds.p$data$Type == "Test",], aes(label = Sample), show.legend = FALSE)
-  }
+  ### Output ###
   
   #add Ellipse#
   if(train_ellipse==TRUE){
     # The t-distribution is used as an alternative to the normal distribution when sample sizes are small in order to estimate confidence or determine critical values that an observation is a given distance from the mean
     mds.p <- mds.p + stat_ellipse(data=mds.p$data[mds.p$data$Type == "Train",], aes(group=Group),type = "t", show.legend = FALSE, linetype=4) 
   }
-  
-  #print ggplot#
-  print(mds.p)
-  
+
+  ## MDS plotly ##
+  if (plot_type == "plotly"){
+    mds.p.plotly <- ggplotly(mds.p)
+    print(mds.p.plotly)
+  } else if (plot_type == "ggplot"){
+    print(mds.p)
+  } else if (plot_type == "ggplot_label"){
+    mds.p <- mds.p +geom_text_repel(aes(label = Sample), show.legend = FALSE)
+  } else if (plot_type == "ggplot_label_test"){
+    mds.p <- mds.p +geom_text_repel(data=mds.p$data[mds.p$data$Type == "Test",], aes(label = Sample), show.legend = FALSE)
+  }
+
 } 
 
 
