@@ -1763,8 +1763,8 @@ nano.calibrate <- function(data, Cal_models, print_report = FALSE, method=c("glm
   if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
   
   if(print_report == TRUE){
-    write.table(test_results_agg, file=paste0(out_path,"/",prefix,"_test_summary_aggregate.txt"), sep = "\t", col.names = NA)
-    write.table(test_results_agg.ALL.full, file=paste0(out_path,"/",prefix,"_test_summary.txt"), sep = "\t", col.names = NA)
+    write.table(test_results_agg, file=paste0(out_path,"/",prefix,"test_summary_aggregate.txt"), sep = "\t", col.names = NA)
+    write.table(test_results_agg.ALL.full, file=paste0(out_path,"/",prefix,"test_summary.txt"), sep = "\t", col.names = NA)
   }
   data$test_results_agg <- test_results_agg
   data$test_results <- test_results_agg.ALL.full
