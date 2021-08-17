@@ -235,7 +235,7 @@ process.raw <- function(work_path=getwd(), raw_path=NULL, keep_file_path=NULL, o
     raw.obj <- nano.prenorm.qc(data=raw.obj, prefix = prefix, out_path = out_path)
   }
   # [3] Normalization
-  if(raw_n > 3){
+  if(raw_n > 1){
     print(paste0("=nano.norm="))
     raw.obj <- nano.norm(data=raw.obj, SampleContent = SampleContent) 
   }
