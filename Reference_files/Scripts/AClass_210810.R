@@ -344,12 +344,12 @@ classify.data <- function(work_path=getwd(), data, prefix, training_model_obj, a
   
   # default to use run_id as out_path unless otherwise provided
   if (!is.null(test.obj$run_info$run_id)){
-    prj_prefix <- test.obj$run_id
+    prj_prefix <- test.obj$run_info$run_id[1]
     out_path <- paste0(work_path,"/",prj_prefix)
   }
   
-  if(!is.null(out_path) & !dir.exists(out_path)){
-    dir.create(out_path, showWarnings = FALSE)
+  if(is.null(out_path)){
+    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
   }
   
   if (!is.null(keep_file_path)) {
@@ -481,8 +481,8 @@ nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="") 
 nano.prenorm.qc <- function(data, code_class = "Housekeeping", prefix, out_path=NULL){
   raw_data <- data$raw
 
-  if(!is.null(out_path) & !dir.exists(out_path)){
-    stop("[MSG] out_path doesn't exist.")
+  if(is.null(out_path)){
+    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
   }
   
   library(reshape2)
@@ -511,7 +511,7 @@ nano.prenorm.qc <- function(data, code_class = "Housekeeping", prefix, out_path=
   # plot #
   # individual hk genes #
   hk$genes <- row.names(hk)
-  hk.melt <- melt(hk, variable.names = "genes")
+  hk.melt <- reshape2::melt(hk, variable.names = "genes")
   p.genes <- ggplot(aes(x = variable, y = value, shape = genes),data = hk.melt)
   p.genes <- p.genes + geom_point(aes(color = genes)) +
     ggtitle("Expression") +
@@ -523,7 +523,7 @@ nano.prenorm.qc <- function(data, code_class = "Housekeeping", prefix, out_path=
     ylab('Values')
 
   # geometric means of hk genes #
-  hk.prenorm_qc.melt <- melt(hk.prenorm_qc[c("GeoMean","CV","Mean","Sample")], variable.names = "Sample") # melt requires matrix for rownames.
+  hk.prenorm_qc.melt <- reshape2::melt(hk.prenorm_qc[c("GeoMean","CV","Mean","Sample")], variable.names = "Sample") # melt requires matrix for rownames.
   #p.qc <- ggplot(aes(x = Sample, y = value), data = hk.prenorm_qc.melt)  # plot both mean and geomean
   p.qc <- ggplot(aes(x = Sample, y = value), data = subset(hk.prenorm_qc.melt, hk.prenorm_qc.melt$variable == "GeoMean"))  # geomean only
   max_val <- max(hk.prenorm_qc.melt[hk.prenorm_qc.melt$variable == "GeoMean",]$value)
@@ -648,7 +648,7 @@ generate.models <- function(data, training_memberships_path, N.train.per, prefix
 #' train.data.main <- train.data[train.idx,,drop=FALSE]
 #' train.data.validate <- train.data[-train.idx,,drop=FALSE]
 
-nano.trainsplit <- function(data = data,training_memberships_path,N.train.per){
+nano.trainsplit <- function(data,training_memberships_path,N.train.per){
     train.data <- data$norm.t
     training_memberships <- read.table(file = training_memberships_path, sep = "\t", row.names = 1, header = FALSE)
     row.names(training_memberships) <- make.names(row.names(training_memberships)) # fix names
@@ -697,7 +697,7 @@ nano.trainsplit <- function(data = data,training_memberships_path,N.train.per){
 #'
 #' @param train.norm Normalized dataframe.
 #' @param alg_list list of alg
-#' @param probes_rank_path path to probe ranking list. Given list sorted by p value.
+#' @param probes_rank_path path to probe ranking list. Given list sorted by p value. Looks for probes_list.txt in the working directory if probes_rank_path is missing.
 #' @param min_test_features Minimum number of features tested.
 #' @param max_test_features Maximum number of features tested.
 #' @param out_path output path
@@ -714,8 +714,8 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
     train.data.training_main <- data$train.data.main
     
     if(is.null(probes_rank_path)) {
-      if(file.exists(paste(ref_path,"probes_list.txt",sep = "/"))){
-        probes.list.full <- as.character(unlist(read.table(paste(ref_path,"probes_list.txt",sep = "/"))))
+      if(file.exists("probes_list.txt")){
+        probes.list.full <- as.character(unlist(read.table("probes_list.txt",sep = "/")))
       } else  {
         stop("[MSG] Probes rank path missing.")
       }
@@ -723,8 +723,8 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
         probes.list.full <- as.character(unlist(read.table(file = probes_rank_path)))
     }
 
-    if(!is.null(out_path) & !dir.exists(out_path)){
-      stop("[MSG] out_path doesn't exist.")
+    if(is.null(out_path)){
+      out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
     }
     
     train.settings <- list(alg_list=alg_list, probes_rank=probes.list.full, min_test_features=min_test_features,max_test_features=max_test_features,c.method =c.method , c.repeats = c.repeats, c.number = c.number )
@@ -806,7 +806,7 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
             colnames(train.mat.best.simple) <- c("Sample",paste0(alg,"_",probe.idx,"_N_Match"))
             
             library(reshape2)
-            train.mat.best.cast <- dcast(train.mat.best, Sample+pred+obs ~ Resample, value.var="Sample")
+            train.mat.best.cast <- reshape2::dcast(train.mat.best, Sample+pred+obs ~ Resample, value.var="Sample")
             train.mat.best.cast <- merge(train.mat.best.simple, train.mat.best.cast, by="Sample")
     
             if (length(training_model_mat_list.full)==0){
@@ -865,8 +865,8 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
 #' @param out_path output path
 nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max, out_path=NULL){
   
-  if(!is.null(out_path) & !dir.exists(out_path)){
-    stop("[MSG] Out_path doesn't exist.")
+  if(is.null(out_path)){
+    out_path = paste(getwd())
   }
   
   train_list <- training_model_obj[["training_model_list"]]
@@ -1105,8 +1105,8 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
       training_model_list <- training_model_obj[["training_model_list"]]
     }  
   
-    if(!is.null(out_path) & !dir.exists(out_path)){
-      stop("[MSG] out_path doesn't exist.")
+    if(is.null(out_path)){
+      out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
     }
   
     ## setting defaults ##
@@ -1235,8 +1235,8 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
 #' nano.test(raw_data_path, omit_file_path_with_file_name)
 get.nano.test.results <- function(prefix, data, print_report=FALSE, out_path=NULL) {
     
-  if(!is.null(out_path) & !dir.exists(out_path)){
-    stop("[MSG] out_path doesn't exist.")
+  if(is.null(out_path)){
+    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
   }
   
   testing_results_summary_groups_score <- data$test_results_full
@@ -1332,8 +1332,8 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     stop("[MSG] colour_code missing from data. Run nano.set.colour() first.")
   }
   
-  if(!is.null(out_path) & !dir.exists(out_path)){
-    stop("[MSG] out_path doesn't exist.")
+  if(is.null(out_path)){
+    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
   }
   
   
@@ -1357,7 +1357,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
   t.result.list <- list()
   if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
   
-  pdf(file = paste0(out_path,"/",prefix,"_test_result_",report_type,"_plots.pdf"), width = 10.5, height = 8)
+  pdf(file = paste0(out_path,"/",prefix,"test_result_",report_type,"_plots.pdf"), width = 10.5, height = 8)
   for (SAMPLE in unique(test_results_full$Sample)) {
     print(SAMPLE)
     
@@ -1391,7 +1391,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     ## probability by algorithms ##
     # by Num_Features != "ALL"
     agg.i <- agg.table.i[agg.table.i$Num_Features != "ALL",]
-    agg.m <- melt(agg.i[c("Num_Features",prob,"Class")], variable_name = "Class", id.vars=c("Num_Features",prob,"Class"))
+    agg.m <- reshape2::melt(agg.i[c("Num_Features",prob,"Class")], variable_name = "Class", id.vars=c("Num_Features",prob,"Class"))
     agg.m[is.na(agg.m)] <- 0 # for cases with no predictions probability
     agg.p <- ggline(agg.m, x = "Num_Features", y = prob,
                     linetype = "Class",
@@ -1491,7 +1491,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
 
     ## raw line plot ##
     raw.i <- test_results_full[test_results_full$Sample == SAMPLE,]
-    raw.m <- melt(raw.i[c("Num_Features","Probability","Class","Alg")], variable_name = "Class", id.vars=c("Num_Features","Probability","Class","Alg"))
+    raw.m <- reshape2::melt(raw.i[c("Num_Features","Probability","Class","Alg")], variable_name = "Class", id.vars=c("Num_Features","Probability","Class","Alg"))
     raw.p <- ggline(raw.m, x = "Num_Features", y = "Probability",
                     linetype = "Class",
                     color = "Class",
@@ -1545,9 +1545,12 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
   dev.off()
   
   ##### Output #####
+  
+  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+  
   if(print_report == TRUE){
-    write.table(test_results_agg, file=paste0(out_path,"/",prefix,"_test_summary_aggregate.txt"), sep = "\t", col.names = NA)
-    write.table(test_results, file=paste0(out_path,"/",prefix,"_test_summary.txt"), sep = "\t", col.names = NA)
+    write.table(test_results_agg, file=paste0(out_path,"/",prefix,"test_summary_aggregate.txt"), sep = "\t", col.names = NA)
+    write.table(test_results, file=paste0(out_path,"/",prefix,"test_summary.txt"), sep = "\t", col.names = NA)
   }
   
   data$test_summary <- t.result.list
@@ -1684,8 +1687,8 @@ nano.calibrate <- function(data, Cal_models, print_report = FALSE, method=c("glm
     stop("[MSG] Data set has been calibrated already")
   }
   
-  if(!is.null(out_path) & !dir.exists(out_path)){
-    stop("[MSG] out_path doesn't exist.")
+  if(is.null(out_path)){
+    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
   }
   
   print(paste0("[MSG] Calibrate Avg_Probability..."))
@@ -1954,8 +1957,8 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 
 nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probability", anno_table, GeoMean_thres=0, out_path=NULL, input_path=getwd()){
   
-  if(!is.null(out_path) & !dir.exists(out_path)){
-    stop("[MSG] out_path doesn't exist.")
+  if(is.null(out_path)){
+    out_path = paste(getwd())
   }
   
   anno <- anno_table # subgroup list
@@ -2283,4 +2286,42 @@ nano.feat.select <- function(nanostring_data){
     Boruta.obj[["Boruta_obj_rough_fix"]] <- boruta.nanostring_data.fix
     Boruta.obj[["Stats"]] <- boruta.nanostring_data.fix_df
     return(Boruta.obj)
+}
+
+
+
+
+##### extract samples from nano.obj #####
+# extract sample from nano.obj and update run_info accordingly
+# data  nano.obj
+# keep_samples_path csv file expect no header, col one that match sample name and col 2 Subgroup
+nano.extract <- function(data, keep_samples_path=NULL){
+  if(is.null(keep_samples_path)){
+    stop(paste0("[MSG] keep_samples_path must be provided with. CSV file expect no header, col one that match sample name and col 2 Subgroup."))
+  }
+  
+  keep_samples <- read.table(keep_samples_path, header = FALSE, sep=",")
+  keep_samples <- keep_samples[,1]
+  
+  data$run_info
+  data$raw <- raw.obj$raw[,c(colnames(raw.obj$raw)[1:3],keep_samples)]
+  data$prenorm_qc <- raw.obj$prenorm_qc[keep_samples,]
+  data$norm <- raw.obj$norm[,keep_samples]
+  data$norm.t <- raw.obj$norm.t[keep_samples,]
+  ori_n <- nrow(raw.obj$norm.t)
+  data$run_info$samples_loaded <- paste0(nrow(raw.obj$norm.t), " samples loaded.")
+  
+  print(paste0("[MSG] ",nrow(raw.obj$norm.t)," samples extracted from ",ori_n, " samples."))
+  return(data)
+  
+}
+
+# convert training sample validate data frame for test
+# data = train
+convert2test <- function(data){
+  test <- list()
+  test$norm.t <- subset(data$train.data.validate, select =-Group)
+  test$prenorm_qc <- data$prenorm_qc
+  test$run_info <- data$run_info
+  return(test)
 }
