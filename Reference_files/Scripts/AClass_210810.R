@@ -621,7 +621,6 @@ nano.prep <- function(data){
 
 }
 
-##### Training #####
 
 ##### Train Splitting #####
 # v2 fixed bugs
@@ -690,7 +689,7 @@ nano.trainsplit <- function(data,training_memberships_path,N.train.per){
 #' @param probes_rank_path path to probe ranking list. Given list sorted by p value. Looks for probes_list.txt in the working directory if probes_rank_path is missing.
 #' @param min_test_features Minimum number of features tested.
 #' @param max_test_features Maximum number of features tested.
-#' @param out_path output path
+#' @param out_path output path. When not provided out_path will be extracted from run_info (default)
 #' @return Optimal_Training_Attributes Full_Training_Attributes.txt performance_pdf
 #'
 #' @example
@@ -852,11 +851,11 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
 #' @param training_model_obj - training model object where training performance is pulled out from
 #' @param feature_min - controls the number of min plotting range
 #' @param feature_max - controls the number of max plotting range
-#' @param out_path output path
+#' @param out_path output path. When not provided out_path will be extracted from run_info (default)
 nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max, out_path=NULL){
   
   if(is.null(out_path)){
-    out_path = paste(getwd())
+    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
   }
   
   train_list <- training_model_obj[["training_model_list"]]
@@ -1074,7 +1073,7 @@ nano.norm <- function(data, SampleContent = "housekeeping.geo.mean", round.value
 #' @param min_test_features Minimum number of features tested.
 #' @param max_test_features Maximum number of features tested.
 #' @param prefix output prefix e.g. paste(project,format(Sys.time(), "%Y-%m-%d_%H%M"), sep = "_")
-#' @param out_path output location
+#' @param out_path output path. When not provided out_path will be extracted from run_info (default)
 #' @return testing_results_summary_groups_score
 #'
 #' @example
@@ -1217,7 +1216,7 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
 #' @param prefix file prefix (optional)
 #' @param testing_results_summary_groups_score
 #' @param print_report print or not. default is FALSE
-#' @param out_path output path
+#' @param out_path output path. When not provided out_path will be extracted from run_info (default)
 #' @return Test_aggregate_summary_ _Test_aggregate_summary_MAX_
 #' @example
 #' library(ggpubr)
@@ -1667,7 +1666,7 @@ nano.cal_model <- function(prefix, cal_labels.df, method=c("glm","glmnet")) {
 # Calibrate "Avg_Probability"
 # Required column: "obs" for ground truth, "Class" for multi-class prediction made from classifier, "Sample" for Names for where the Avg_Probability originated, Avg_Probability for avg. probability predicted from the classifier.
 #' @param cal_labels.df
-#' @param out_path outpath location
+#' @param out_path output path. When not provided out_path will be extracted from run_info (default)
 #' @return Cal_models list and trained models saved as RDS
 #' @example
 #' library(ResourceSelection)
@@ -1943,14 +1942,14 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 #' @param anno_table to merge with (expects "nano_filename" column) *depreciated* to use training_memberships_path instead (nano_filename and Class)
 #' @param training_memberships_path no header, expects nano_filename in column 1 and and Class in column 2.
 #' @param GeoMean_thres
-#' @param out_path output location
+#' @param out_path output path. When not provided out_path will be extracted from run_info (default)
 #' @param in_path input location for *_test_summary.txt. Default to getwd().
 
 nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Probability", anno_table=NULL, training_memberships_path=NULL, GeoMean_thres=0, out_path=NULL, input_path=getwd()){
   
   ### check ###
   if(is.null(out_path)){
-    out_path = paste(getwd())
+    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
   }
   
   if(!is.null(anno_table)){
@@ -2317,10 +2316,10 @@ nano.extract <- function(data, keep_samples_path=NULL){
   nano.obj$prenorm_qc <- data$prenorm_qc[keep_samples,]
   nano.obj$norm <- data$norm[,keep_samples]
   nano.obj$norm.t <- data$norm.t[keep_samples,]
-  ori_n <- nrow(data$norm.t)
+  nano.obj$run_info <- data$run_info
   nano.obj$run_info$samples_loaded <- paste0(nrow(nano.obj$norm.t), " samples loaded.")
-  
-  print(paste0("[MSG] ",nrow(nano.obj$norm.t)," samples extracted from ",ori_n, " samples."))
+
+  print(paste0("[MSG] ",nrow(nano.obj$norm.t)," samples extracted from ",nrow(data$norm.t), " samples."))
   return(nano.obj)
   
 }
