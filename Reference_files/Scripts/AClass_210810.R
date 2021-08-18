@@ -623,16 +623,6 @@ nano.prep <- function(data){
 
 ##### Training #####
 
-generate.models <- function(data, training_memberships_path, N.train.per, prefix, alg_list = c("rf","glmnet","pam", "nb", "knn"), probes_rank, min_test_features=5, max_test_features=30){
-
-    raw.obj <- train_model <- ""
-    
-    raw.obj <- nano.trainsplit(data = data,training_memberships_path = training_memberships_path,N.train.per = N.train.per)
-    
-    training_model_obj <- nano.train(prefix = prefix, data = data , alg_list = alg_list, probes_rank = probes_rank, min_test_features=min_test_features, max_test_features=max_test_features)
-    nano.train.report(prefix, training_model_obj=training_model_obj, feature_min, feature_max)
-}
-
 ##### Train Splitting #####
 # v2 fixed bugs
 # v3 fix bug where memberships from link were not sorted correctly.
@@ -1546,7 +1536,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
   
   ##### Output #####
   
-  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+  #if(!is.null(prefix)){prefix <- paste0(prefix,"_")} ran above
   
   if(print_report == TRUE){
     write.table(test_results_agg, file=paste0(out_path,"/",prefix,"test_summary_aggregate.txt"), sep = "\t", col.names = NA)
@@ -1942,26 +1932,45 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 
 ##### Evaluate results #####
 # working in progress. problem with confusionmatrix require more than 2 classes to work properly
-# creates confusion nmatrix and stats in excel
-# requires nano.plot to work properly
+# creates confusion matrix and stats based on _test_summary.txt file by parsing recursively within in_path.
+# requires nano.plot to work properly?
 # 'Class' reserved for prediction results
 # 'Subgroup' reserved for ground truth
 #' @param prefix
-#' @param use_class
-#' @param Prob_range
-#' @param prob
-#' @param anno_table
+#' @param use_class custom class output order (default is to use detected order)
+#' @param Prob_range vector of probability intervals to be used in analysis
+#' @param prob column name for probability present in *_test_summary.txt file. Default "Avg_Probability"
+#' @param anno_table to merge with (expects "nano_filename" column) *depreciated* to use training_memberships_path instead (nano_filename and Class)
+#' @param training_memberships_path no header, expects nano_filename in column 1 and and Class in column 2.
 #' @param GeoMean_thres
 #' @param out_path output location
-#' @param in_path input location for *_test_summary.txt. Default to 
+#' @param in_path input location for *_test_summary.txt. Default to getwd().
 
-nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probability", anno_table, GeoMean_thres=0, out_path=NULL, input_path=getwd()){
+nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Probability", anno_table=NULL, training_memberships_path=NULL, GeoMean_thres=0, out_path=NULL, input_path=getwd()){
   
+  ### check ###
   if(is.null(out_path)){
     out_path = paste(getwd())
   }
   
-  anno <- anno_table # subgroup list
+  if(!is.null(anno_table)){
+    stop("[MSG] anno_table is no longer supported, use training_memberships_path instead")
+  }
+  
+  if(is.null(training_memberships_path)){
+    stop("[MSG] training_memberships_path is required")
+  } else if (!is.null(training_memberships_path)){
+    anno <- read.table(training_memberships_path, header = FALSE, sep = "\t")
+    if(!ncol(anno) != 2){
+      stop("[MSG] Expects 2 columns and header with nano_filename in column 1 and and Class in column 2. ")
+    }
+    colnames(anno) <- c("nano_filename","Class")
+  }
+  
+  if(is.null(use_class)){
+    
+  }
+  
   summary_file.df <- summary_file.agg.df <- summary_file.full.df <- data.frame()
   Test_Summary_Overall <- Test_Summary_Stats <- Test_Summary <- conf_matrix_list <-list()
   WD <- prefix
@@ -2303,16 +2312,16 @@ nano.extract <- function(data, keep_samples_path=NULL){
   keep_samples <- read.table(keep_samples_path, header = FALSE, sep=",")
   keep_samples <- keep_samples[,1]
   
-  data$run_info
-  data$raw <- raw.obj$raw[,c(colnames(raw.obj$raw)[1:3],keep_samples)]
-  data$prenorm_qc <- raw.obj$prenorm_qc[keep_samples,]
-  data$norm <- raw.obj$norm[,keep_samples]
-  data$norm.t <- raw.obj$norm.t[keep_samples,]
-  ori_n <- nrow(raw.obj$norm.t)
-  data$run_info$samples_loaded <- paste0(nrow(raw.obj$norm.t), " samples loaded.")
+  nano.obj <- list()
+  nano.obj$raw <- data$raw[,c(colnames(data$raw)[1:3],keep_samples)]
+  nano.obj$prenorm_qc <- data$prenorm_qc[keep_samples,]
+  nano.obj$norm <- data$norm[,keep_samples]
+  nano.obj$norm.t <- data$norm.t[keep_samples,]
+  ori_n <- nrow(data$norm.t)
+  nano.obj$run_info$samples_loaded <- paste0(nrow(nano.obj$norm.t), " samples loaded.")
   
-  print(paste0("[MSG] ",nrow(raw.obj$norm.t)," samples extracted from ",ori_n, " samples."))
-  return(data)
+  print(paste0("[MSG] ",nrow(nano.obj$norm.t)," samples extracted from ",ori_n, " samples."))
+  return(nano.obj)
   
 }
 
