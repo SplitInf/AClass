@@ -1419,8 +1419,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     agg.ALL <- cbind(agg.ALL[,c(1,2)],agg.ALL.tmp) 
 
     agg.ALL$Agreement <- as.numeric(round(agg.ALL$Agreement, digits = 4) * 100)
-    agg.ALL$Class_char <- as.character(agg.ALL$Class)
-    
+
     ## ggdotchart ##
     agg.ALL.p <- ggdotchart(agg.ALL, x= "Class",y = prob,
                     linetype = "Class",
