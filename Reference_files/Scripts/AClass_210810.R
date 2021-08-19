@@ -376,8 +376,6 @@ classify.data <- function(work_path=getwd(), data, prefix, training_model_obj, a
   saveRDS(test.obj, file = paste0(out_path,"/",prefix,"_test.data.tested.RDS"))
   
   # [8] Set Colour Code based on pre-trained models
-  # group <- c("Group1","Group2A","Group2B")
-  # group <- c("Group1","Group2")
   group <- unique(training_model_obj$train.data.main$Group)
   test.obj <- nano.set.colour(test.obj, group)
   
@@ -658,6 +656,11 @@ nano.trainsplit <- function(data,training_memberships_path,N.train.per){
     # 1) takes in account of balance of labels
     # input = samples and labels
     # output = index of selected samples
+    
+    # adding random seed doesn't solve loop bug issue #
+    # rnd <- sample(1:.Machine$integer.max,1)
+    # set.seed(rnd)
+    # print(paste0("[MSG] random seed: ",rnd))
     train.idx <- createDataPartition(y = train.data$Group, ## the outcome data are needed for random sampling
                                          p = N.train.per,     ## The percentage of data in the training set
                                          list = FALSE)
@@ -823,6 +826,7 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
     training_model_obj[["training_model_list"]] <- training_model_list
     training_model_obj[["train.data.main"]] <- train.data.training_main
     training_model_obj[["train.settings"]] <- train.settings
+    training_model_obj[["run_info"]] <- data$run_info
     
     saveRDS(training_model_obj, file=paste0(out_path,"/",prefix,"_Training_Models_List.RDS")) 
     return(training_model_obj)
@@ -855,7 +859,7 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
 nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max, out_path=NULL){
   
   if(is.null(out_path)){
-    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
+    out_path = paste(getwd(),training_model_obj$run_info$run_id[1], sep = "/")
   }
   
   train_list <- training_model_obj[["training_model_list"]]
@@ -896,6 +900,8 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
   stopifnot(feature_max >= probe_min & feature_max <= probe_max)
   stopifnot(feature_min >= probe_min & feature_min <= probe_max)
   
+  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+  
   # calculate avg #
   
   internal_performance$Alg <- as.factor(internal_performance$Alg)
@@ -919,7 +925,7 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
     } # j
   } # i
   
-  pdf(file = paste0(prefix,"_Accuracy_by_Alg.pdf"), width = 10.5, height = 8)
+  pdf(file = paste0(out_path,"/",prefix,"Accuracy_by_Alg.pdf"), width = 10.5, height = 8)
   ## plot ##
   g_conf_mat.facet <- ggplot(data =stats, aes(Num_Features.i, Num_Features.j,Avg_accuracy))+ 
     geom_tile(aes(fill = Avg_accuracy),colour = "white")   + 
@@ -1004,9 +1010,9 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
   
   ##### Output #####
   print(paste0("[MSG] Check directory for detailed reports."))
-  write.table(internal_performance, file = paste0(out_path,"/",prefix,"_Optimal_Training_Attributes.txt"), col.names = NA, sep = "\t")
-  write.table(full_internal_performance, file = paste0(out_path,"/",prefix,"_Full_Training_Attributes.txt"), col.names = NA, sep = "\t")
-  write.table(overivew_internal_performance,file = paste0(out_path,"/",prefix,"_Overview_Training_Attributes.txt"), col.names = NA, sep = "\t")
+  write.table(internal_performance, file = paste0(out_path,"/",prefix,"Optimal_Training_Attributes.txt"), col.names = NA, sep = "\t")
+  write.table(full_internal_performance, file = paste0(out_path,"/",prefix,"Full_Training_Attributes.txt"), col.names = NA, sep = "\t")
+  write.table(overivew_internal_performance,file = paste0(out_path,"/",prefix,"Overview_Training_Attributes.txt"), col.names = NA, sep = "\t")
 }
 
 
@@ -1370,9 +1376,11 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     t.result <- t(data.frame("Sample" = result.i$Sample, "Class" = result.i$Class, "Class Prob" = paste0(round(as.numeric(result.i[prob]), 4) * 100, "%"), "Prob Type"=plot_title, "Models Tested" = result.i$N_models, "Models Agreement" =  paste0(round(result.i$Agreement * 100, 4),"%"), "GeoMean" = result.i$GeoMean, "CV" = result.i$CV, "Remarks1" = remarks1, "Remarks2" = remarks2))
     colnames(t.result) <- "Summary Table"
     t.result.list[[SAMPLE]] <- t.result
+    
     ##### Plots ####
     color_chart <- col_code$Group_Colour
     names(color_chart) <- col_code$Group
+    
     ## Format tables ##
     agg.table.i <- test_results_agg[test_results_agg$Sample == SAMPLE,]
     test_results_full.i <- test_results_full[test_results_full$Sample == SAMPLE,]
@@ -1382,6 +1390,8 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     agg.i <- agg.table.i[agg.table.i$Num_Features != "ALL",]
     agg.m <- reshape2::melt(agg.i[c("Num_Features",prob,"Class")], variable_name = "Class", id.vars=c("Num_Features",prob,"Class"))
     agg.m[is.na(agg.m)] <- 0 # for cases with no predictions probability
+    
+    ## ggline ##
     agg.p <- ggline(agg.m, x = "Num_Features", y = prob,
                     linetype = "Class",
                     color = "Class",
@@ -1402,13 +1412,16 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     agg.ALL <- agg.table.i[agg.table.i$Num_Features == "ALL",]
     Groups <- data.frame(Class=col_code$Group)
     agg.ALL <- merge(Groups, agg.ALL,by = "Class", all.x = TRUE) # make sure all three groups are present
-    
+
     # fill NA's with 0 for cases with no predictions. Col 1 and 2 are Class and Sample (factors) #
     agg.ALL.tmp <- agg.ALL[,-c(1,2)]
     agg.ALL.tmp[is.na(agg.ALL.tmp)] <- 0
     agg.ALL <- cbind(agg.ALL[,c(1,2)],agg.ALL.tmp) 
 
     agg.ALL$Agreement <- as.numeric(round(agg.ALL$Agreement, digits = 4) * 100)
+    agg.ALL$Class_char <- as.character(agg.ALL$Class)
+    
+    ## ggdotchart ##
     agg.ALL.p <- ggdotchart(agg.ALL, x= "Class",y = prob,
                     linetype = "Class",
                     color = "Class",
@@ -1417,7 +1430,8 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
                     nrow = 1,
                     size = 0.5,
                     legend="",
-                    xlab = ""
+                    xlab = "",
+                    group = "Class"
                   ) +
                   scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.2)) +
                   coord_cartesian(ylim = c(0, 1))+
