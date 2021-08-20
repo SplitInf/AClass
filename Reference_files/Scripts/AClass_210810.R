@@ -1386,7 +1386,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
 
   ### functions ###
   
-  get_qc_report <- function(test_results,prenorm_qc, sample, prob){
+  get_qc_report <- function(test_results,prenorm_qc, sample, prob, thres_geomean, thres_avg_prob){
     result.i <- c(test_results[test_results$Sample == sample,], prenorm_qc[prenorm_qc$Sample == sample,])
     
     # get sample QC stats #
@@ -1483,7 +1483,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     agg.ALL <- test_results_agg[test_results_agg$Sample == sample & test_results_agg$Num_Features == "ALL" ,] 
     # reverse order to order from bottom up#
     agg.ALL$Class <- factor(agg.ALL$Class, levels = rev(levels(agg.ALL$Class)))
-    agg.ALL.bar <- ggplot2::ggplot(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class, label = paste0(Agreement*100,"%"))) + 
+    agg.ALL.bar <- ggplot2::ggplot(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class, label = paste0(signif(Agreement,digits=3)*100,"%"))) + 
       geom_bar(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class),
                stat="identity", width = 1) + 
       theme_minimal() +
@@ -1567,7 +1567,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     print(SAMPLE)
     
     #### Result stats and plots ####
-    t.result <- get_qc_report(test_results=test_results,prenorm_qc=prenorm_qc, sample=SAMPLE, prob = prob)
+    t.result <- get_qc_report(test_results=test_results,prenorm_qc=prenorm_qc, sample=SAMPLE, prob = prob, thres_geomean, thres_avg_prob)
     t.result.list[[SAMPLE]] <- t.result
     
     ## algorithms line plot ##
@@ -1602,8 +1602,8 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
       grid.arrange(
         top = paste0("Test Result Summary - ",SAMPLE),
         tableGrob(t.result),
-        arrangeGrob(arrangeGrob(agg.stacked_bar.p,full.horizontal_bar.p, ncol=2, widths = c(0.8,1),top=paste0("Fig.1 - Models agreement")),
-                    arrangeGrob(agg.ALL.p, widths = 1, top=paste0("Fig.2 - ",plot_title," by class")),
+        arrangeGrob(arrangeGrob(agg.stacked_bar.p,full.horizontal_bar.p, ncol=2, widths = c(0.8,1),top=textGrob(paste0("Fig.1 - Models agreement"), gp = gpar(fontface=2)), bottom= textGrob("Probability distribution", gp = gpar(fontsize=11))),
+                    arrangeGrob(agg.dot.p, widths = 1, top=textGrob(paste0("Fig.2 - ",plot_title," by class"), gp = gpar(fontface=2))),
                     ncol=1),
         ncol = 2,
         #widths = c(2,1,0.5),
