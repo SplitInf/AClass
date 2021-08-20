@@ -629,13 +629,14 @@ nano.prep <- function(data){
 #' @param training_memberships_path Normalized dataframe.
 #' @param N.train.per ## percentage of training samples use for training, the remaining would be used for validation e.g. 0.8
 #' @param have_test_label If ground truth labels are avaliable for test data
+#' @param interger to set seed when needing to wrap function in loop
 #' @return train.idx
 #' @example
 #' train.idx<-  nano.trainsplit(train.data,training_memberships_path, 0.8, FALSE)
 #' train.data.main <- train.data[train.idx,,drop=FALSE]
 #' train.data.validate <- train.data[-train.idx,,drop=FALSE]
 
-nano.trainsplit <- function(data,training_memberships_path,N.train.per){
+nano.trainsplit <- function(data,training_memberships_path,N.train.per, seed=NULL){
     train.data <- data$norm.t
     training_memberships <- read.table(file = training_memberships_path, sep = "\t", row.names = 1, header = FALSE)
     row.names(training_memberships) <- make.names(row.names(training_memberships)) # fix names
@@ -657,20 +658,36 @@ nano.trainsplit <- function(data,training_memberships_path,N.train.per){
     # input = samples and labels
     # output = index of selected samples
     
-    # adding random seed doesn't solve loop bug issue #
-    # rnd <- sample(1:.Machine$integer.max,1)
-    # set.seed(rnd)
-    # print(paste0("[MSG] random seed: ",rnd))
-    train.idx <- createDataPartition(y = train.data$Group, ## the outcome data are needed for random sampling
-                                         p = N.train.per,     ## The percentage of data in the training set
-                                         list = FALSE)
-    train.data.main <- train.data[train.idx,,drop = FALSE]     # main training
-    train.data.validate <- train.data[-train.idx,,drop = FALSE]     # training validation
-
-    print(paste0("[MSG] Training: N",nrow(train.data.main),
-                     "     Training_validatation: N",nrow(train.data.validate)))
-
+    if(!is.null(seed)){
+      # adding random seed doesn't solve loop bug issue #
+      # rnd <- sample(1:.Machine$integer.max,1)
+      rnd <- seed
+      set.seed(rnd)
+      print(paste0("[MSG] random seed: ",rnd))
+    }
     
+    duplicate_flag = TRUE
+    while (duplicate_flag==TRUE){
+      train.idx <- createDataPartition(y = train.data$Group, ## the outcome data are needed for random sampling
+                                           p = N.train.per,     ## The percentage of data in the training set
+                                           list = FALSE)
+      train.data.main <- train.data[train.idx,,drop = FALSE]     # main training
+      train.data.validate <- train.data[-train.idx,,drop = FALSE]     # training validation
+  
+      print(paste0("[MSG] Training: N",nrow(train.data.main),
+                       "     Training_validatation: N",nrow(train.data.validate)))
+      
+      if(!is.null(data$train.data.main)){
+        if(all(train.data.main == data$train.data.main) & all(train.data.validate == data$train.data.validate)){
+          duplicate_flag = TRUE
+          print("[MSG] Identical results obtained. Repeating...")
+        } else {
+          duplicate_flag = FALSE
+        }
+      }else{
+        duplicate_flag = FALSE
+      }
+    }  
     data$train.data.main <- train.data.main
     data$train.data.validate <- train.data.validate
     return(data)
@@ -1312,6 +1329,16 @@ get.nano.test.results <- function(prefix, data, print_report=FALSE, out_path=NUL
 #### Plot Data ####
 # v2 allow avg and avg_cal probabilities
 # updated visuals
+#' @param prefix file prefix (optional)
+#' @parm prob  "Avg_Probability" or "Avg_Cal_Probability" 
+#' @param thres_avg_prob probability score threshold cut off below which will be considered low confidence. Related to "prob". Default to 0.
+#' @param thres_geomean geomean threshold cut off below which will be considered fail.
+#' @param report_type report format options. "Summary" or "Detailed"
+#' @param print_report  binary option to print txt summary "test_summary_aggregate.txt" and "test_summary.txt"
+#' @param out_path output path. When not provided out_path will be extracted from run_info (default)
+#' @return 
+#' @example
+   
 nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, thres_geomean = 0, report_type=c("Summary","Detailed"), print_report=FALSE, out_path=NULL){
   
   # Check #
@@ -1331,34 +1358,38 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
   }
   
-  
-  test_results <- data$test_results
-  test_results_agg <- data$test_results_agg
-  test_results_full <- data$test_results_full
-  prenorm_qc <- data$prenorm_qc
+  ## prepare all data frames ##
+  prenorm_qc <- data$prenorm_qc # QC stats
   col_code <- data$colour_code
+
+  test_results_full <- data$test_results_full # full results: all models across probes and results for all classes.
+  test_results_agg <- data$test_results_agg # aggregate results: ensemble models across probes and results for all classes. Contain "ALL" which combines all analysis.
+  test_results <- data$test_results # final test output
   
-  library(gridExtra)
-  library(ggpubr)
+  test_results_agg$Class <- factor(test_results_agg$Class, levels = col_code$Group) # Class required to be factor for plotting
+
+  # prepare color chart of ggpubr #
+  color_chart <- col_code$Group_Colour 
+  names(color_chart) <- col_code$Group
+  
+  # library(gridExtra)
+  # library(ggpubr)
   
   test_results$prob <- test_results[,prob]
   test_results_agg$prob <- test_results_agg[,prob]
 
-  if(prob == "Avg_Probability"){plot_title <-"Average probability"}
-  if(prob == "Avg_Cal_Probability"){plot_title <-"Average calibrated probability"}
+  if(prob == "Avg_Probability"){
+    plot_title <-"Average probability"
+  } else if(prob == "Avg_Cal_Probability"){
+    plot_title <-"Average calibrated probability"
+  }
 
-  ### Output ###
+  ### functions ###
   
-  t.result.list <- list()
-  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
-  
-  pdf(file = paste0(out_path,"/",prefix,"test_result_",report_type,"_plots.pdf"), width = 10.5, height = 8)
-  for (SAMPLE in unique(test_results_full$Sample)) {
-    print(SAMPLE)
+  get_qc_report <- function(test_results,prenorm_qc, sample, prob){
+    result.i <- c(test_results[test_results$Sample == sample,], prenorm_qc[prenorm_qc$Sample == sample,])
     
-    #### Result stats ####
-    result.i <- c(test_results[test_results$Sample == SAMPLE,], prenorm_qc[prenorm_qc$Sample == SAMPLE,])
-    
+    # get sample QC stats #
     if (result.i$GeoMean >= thres_geomean){
       remarks1 <- "QC - PASS"
     } else if (result.i$GeoMean < thres_geomean) {
@@ -1373,89 +1404,97 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
       remarks2 <- "Low Confidence"
     } 
     
-    t.result <- t(data.frame("Sample" = result.i$Sample, "Class" = result.i$Class, "Class Prob" = paste0(round(as.numeric(result.i[prob]), 4) * 100, "%"), "Prob Type"=plot_title, "Models Tested" = result.i$N_models, "Models Agreement" =  paste0(round(result.i$Agreement * 100, 4),"%"), "GeoMean" = result.i$GeoMean, "CV" = result.i$CV, "Remarks1" = remarks1, "Remarks2" = remarks2))
+    # QC Summary Table #
+    t.result <- t(data.frame("Sample" = result.i$Sample, "Class" = result.i$Class, "Class Prob" = paste0(round(as.numeric(result.i[prob]), 4) * 100, "%"), "Prob Type"=prob, "Models Tested" = result.i$N_models, "Models Agreement" =  paste0(round(result.i$Agreement * 100, 4),"%"), "GeoMean" = result.i$GeoMean, "CV" = result.i$CV, "Remarks1" = remarks1, "Remarks2" = remarks2))
     colnames(t.result) <- "Summary Table"
-    t.result.list[[SAMPLE]] <- t.result
     
-    ##### Plots ####
-    color_chart <- col_code$Group_Colour
-    names(color_chart) <- col_code$Group
-    
-    ## Format tables ##
-    agg.table.i <- test_results_agg[test_results_agg$Sample == SAMPLE,]
-    test_results_full.i <- test_results_full[test_results_full$Sample == SAMPLE,]
-    
-    ## probability by algorithms ##
-    # by Num_Features != "ALL"
-    agg.i <- agg.table.i[agg.table.i$Num_Features != "ALL",]
+    return(t.result)
+  }
+  
+  get_agg_line_p <- function(test_results_agg, sample, color_chart, plot_title){
+    # Num_Features != "ALL" to remove combined results
+    agg.i <- test_results_agg[test_results_agg$Sample == sample & test_results_agg$Num_Features !="ALL",] 
     agg.m <- reshape2::melt(agg.i[c("Num_Features",prob,"Class")], variable_name = "Class", id.vars=c("Num_Features",prob,"Class"))
     agg.m[is.na(agg.m)] <- 0 # for cases with no predictions probability
     
     ## ggline ##
-    agg.p <- ggline(agg.m, x = "Num_Features", y = prob,
-                    linetype = "Class",
-                    color = "Class",
-                    palette = color_chart,
-
-                    #facet.by = "Class",
-                    nrow = 1,
-                    size = 0.5,
-                    main = paste0(SAMPLE," - Calibrated probability by features"),
-                    xlab = "Number of Genes",
-                    ylab = prob
+    agg.p <- ggpubr::ggline(agg.m, x = "Num_Features", y = prob,
+                            linetype = "Class",
+                            color = "Class",
+                            palette = color_chart,
+                            
+                            #facet.by = "Class",
+                            nrow = 1,
+                            size = 0.5,
+                            main = paste0(sample," - ",plot_title),
+                            xlab = "Number of Genes",
+                            ylab = prob
     ) +
       scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.2)) +
       #scale_x_continuous(breaks = seq(from = 0, to = 30 ,by = 1)) +
       coord_cartesian(ylim = c(0, 1))
+    return(agg.p)
+  }
+  
+  ## ggdotchart ##
+  get_agg_dot_p <- function(test_results_agg, prob,color_chart, sample){
     
-    ## cleveland plot ##
-    agg.ALL <- agg.table.i[agg.table.i$Num_Features == "ALL",]
-    Groups <- data.frame(Class=col_code$Group)
-    agg.ALL <- merge(Groups, agg.ALL,by = "Class", all.x = TRUE) # make sure all three groups are present
-
+    agg.ALL <- test_results_agg[test_results_agg$Sample == sample & test_results_agg$Num_Features == "ALL" ,] 
+    
+    # merge with Group to ensure all groups are present
+    Groups <- data.frame(Class = names(color_chart))
+    agg.ALL <- merge(Groups, agg.ALL,by = "Class", all.x = TRUE) 
+    
     # fill NA's with 0 for cases with no predictions. Col 1 and 2 are Class and Sample (factors) #
     agg.ALL.tmp <- agg.ALL[,-c(1,2)]
     agg.ALL.tmp[is.na(agg.ALL.tmp)] <- 0
     agg.ALL <- cbind(agg.ALL[,c(1,2)],agg.ALL.tmp) 
-
-    agg.ALL$Agreement <- as.numeric(round(agg.ALL$Agreement, digits = 4) * 100)
-
-    ## ggdotchart ##
-    agg.ALL.p <- ggdotchart(agg.ALL, x= "Class",y = prob,
-                    linetype = "Class",
-                    color = "Class",
-                    palette = color_chart,
-                    dot.size = 5,
-                    nrow = 1,
-                    size = 0.5,
-                    legend="",
-                    xlab = "",
-                    group = "Class"
-                  ) +
-                  scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.2)) +
-                  coord_cartesian(ylim = c(0, 1))+
-                  #theme(plot.title = element_text(hjust = 0.0)) +
-                  theme_minimal()+
-                  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
-                  panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))+
-                  #theme(axis.text = element_text(size=10))+
-                  geom_hline(yintercept=seq(0,1,0.2), linetype="dashed", colour = "grey70")
     
+    agg.ALL$Agreement <- as.numeric(round(agg.ALL$Agreement, digits = 4) * 100)
+  
+    agg.ALL.dot.p <- ggpubr::ggdotchart(agg.ALL, x= "Class",y = prob,
+                                    linetype = "Class",
+                                    color = "Class",
+                                    palette = color_chart,
+                                    dot.size = 5,
+                                    nrow = 1,
+                                    size = 0.5,
+                                    legend="",
+                                    xlab = "",
+                                    group = "Class"
+    ) +
+      scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.2)) +
+      coord_cartesian(ylim = c(0, 1))+
+      #theme(plot.title = element_text(hjust = 0.0)) +
+      theme_minimal()+
+      theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))+
+      #theme(axis.text = element_text(size=10))+
+      geom_hline(yintercept=seq(0,1,0.2), linetype="dashed", colour = "grey70")
+    return(agg.ALL.dot.p)
+  }
+  
+  get_agg_stacked_bar_p <- function(test_results_agg,sample,color_chart){
+    
+    if(!is.factor(test_results_agg$Class)){
+      stop("[MSG] Class must be factor")
+    }
+    
+    agg.ALL <- test_results_agg[test_results_agg$Sample == sample & test_results_agg$Num_Features == "ALL" ,] 
     # reverse order to order from bottom up#
     agg.ALL$Class <- factor(agg.ALL$Class, levels = rev(levels(agg.ALL$Class)))
-    agg.ALL.bar <- ggplot(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class, label = paste0(Agreement,"%"))) + 
-                          geom_bar(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class),
-                                stat="identity", width = 1) + 
-                          theme_minimal() +
-                          scale_fill_manual(values = color_chart) +
-                          geom_text(position = position_stack(vjust = 0.5), size = 4) +  # add percentage
-                          theme(legend.position="", # remove legend and axis text
-                                #axis.text.y=element_blank(),
-                                axis.text.x=element_blank(),
-                                axis.title.x=element_blank()
-                                )  +
-                          scale_y_continuous(expand = c(0,0))  # remove space between axis and values
-
+    agg.ALL.bar <- ggplot2::ggplot(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class, label = paste0(Agreement*100,"%"))) + 
+      geom_bar(data = agg.ALL, aes(x= Sample,y=Agreement, fill= Class),
+               stat="identity", width = 1) + 
+      theme_minimal() +
+      scale_fill_manual(values = color_chart) +
+      geom_text(position = position_stack(vjust = 0.5), size = 4) +  # add percentage
+      theme(legend.position="", # remove legend and axis text
+            #axis.text.y=element_blank(),
+            axis.text.x=element_blank(),
+            axis.title.x=element_blank()
+      )  +
+      scale_y_continuous(expand = c(0,0))  # remove space between axis and values
     
     # add margin (note need ggplot2::margin)
     agg.ALL.bar <- agg.ALL.bar + theme(
@@ -1470,45 +1509,77 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
     #+ ggtitle(paste0("Fig.2 - Models agreement"))+
     #  theme(plot.title = element_text(hjust = 0.0))
     
-    # horiz bar plot #
+    return(agg.ALL.bar)
+  }
+  
+  get_full_horizontal_bar_p <- function(test_results_full,sample,color_chart){
+    test_results_full.i <- test_results_full[test_results_full$Sample == sample,] 
     all.horbar <- test_results_full.i
-    all.horbar$Order <- row.names(all.horbar)
-    #all.horbar$Class <- factor(all.horbar$Class, levels = c("Group2B","Group2A","Group1"))
-    all.horbar.p <- ggbarplot(all.horbar, x="Order",y="Probability",                    
-                              color = "Class",
-                              fill = "Class",
-                              palette = color_chart,
-                              sort.by.groups = TRUE,
-                              rotate = TRUE,
-                              sort.val = "asc",
-                              legend="") + 
-                    theme_minimal() +
-                    ylab(NULL) +
-                    xlab(NULL) +
-                    theme(axis.text.y = element_blank(), 
-                          axis.ticks.y = element_blank(),
-                          axis.text.x = element_blank()
-                    ) +
-                    theme(legend.position="")
-
-    ## raw line plot ##
-    raw.i <- test_results_full[test_results_full$Sample == SAMPLE,]
+    all.horbar$Order <- row.names(all.horbar) # extract order
+    all.horbar.p <- ggpubr::ggbarplot(all.horbar, x="Order",y="Probability",                    
+                                      color = "Class",
+                                      fill = "Class",
+                                      palette = color_chart,
+                                      sort.by.groups = TRUE,
+                                      rotate = TRUE,
+                                      sort.val = "asc",
+                                      legend="") + 
+      theme_minimal() +
+      ylab(NULL) +
+      xlab(NULL) +
+      theme(axis.text.y = element_blank(), 
+            axis.ticks.y = element_blank(),
+            axis.text.x = element_blank()
+      ) +
+      theme(legend.position="")
+    return(all.horbar.p)
+  }
+  
+  ## raw line plot by algorithms ##
+  get_full_line_p <- function(test_results_full, sample,color_chart,plot_title){
+    raw.i <- test_results_full[test_results_full$Sample == sample,]
     raw.m <- reshape2::melt(raw.i[c("Num_Features","Probability","Class","Alg")], variable_name = "Class", id.vars=c("Num_Features","Probability","Class","Alg"))
-    raw.p <- ggline(raw.m, x = "Num_Features", y = "Probability",
-                    linetype = "Class",
-                    color = "Class",
-                    palette = color_chart,
-                    facet.by = "Alg",
-                    nrow = 5,
-                    size = 0.5,
-                    main = paste0("Fig.3 - ",plot_title, " by algorithms"),
-                    xlab = "N_features",
-                    ylab = prob
+    raw.p <- ggpubr::ggline(raw.m, x = "Num_Features", y = "Probability",
+                            linetype = "Class",
+                            color = "Class",
+                            palette = color_chart,
+                            facet.by = "Alg",
+                            nrow = 5,
+                            size = 0.5,
+                            main = paste0("Fig.3 - ",plot_title, " by algorithms"),
+                            xlab = "N_features",
+                            ylab = prob
     ) +
       scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.2)) +
       scale_x_continuous(breaks = seq(from = 0, to = 30 ,by = 1)) +
       coord_cartesian(ylim = c(0, 1))+
       theme(plot.title = element_text(hjust = 0.0))
+    
+    return(raw.p)
+  }
+  ### Output ###
+  
+  t.result.list <- list()
+  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+  
+  pdf(file = paste0(out_path,"/",prefix,"test_result_",report_type,"_plots.pdf"), width = 10.5, height = 8)
+  for (SAMPLE in unique(test_results_full$Sample)) {
+    print(SAMPLE)
+    
+    #### Result stats and plots ####
+    t.result <- get_qc_report(test_results=test_results,prenorm_qc=prenorm_qc, sample=SAMPLE, prob = prob)
+    t.result.list[[SAMPLE]] <- t.result
+    
+    ## algorithms line plot ##
+    agg.line.p <- get_agg_line_p(test_results_agg=test_results_agg, sample=SAMPLE, plot_title=plot_title, color_chart=color_chart)
+    ## cleveland plot ##
+    agg.dot.p <- get_agg_dot_p(test_results_agg=test_results_agg, sample=SAMPLE, prob=prob, color_chart=color_chart )
+    ## get_agg_stacked_bar_p ##
+    agg.stacked_bar.p <- get_agg_stacked_bar_p(test_results_agg=test_results_agg, sample=SAMPLE, color_chart=color_chart)
+    # horiz bar plot #
+    full.horizontal_bar.p <- get_full_horizontal_bar_p(test_results_full=test_results_full, sample=SAMPLE, color_chart=color_chart)
+    # algorithms full line plot #
+    full.line.p <- get_full_line_p(test_results_full=test_results_full, sample=SAMPLE, color_chart=color_chart, plot_title=plot_title)
     
    ##### Format Report ####
     
@@ -1516,25 +1587,24 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
       grid.arrange(
         top = paste0("Test Result Details - ",SAMPLE),
         tableGrob(t.result),
-        #agg.p,
-        agg.ALL.p,
-        agg.ALL.bar,
-        raw.p,
+        #agg.line.p,
+        agg.dot.p,
+        agg.stacked_bar.p,
+        full.line.p,
         ncol = 4,
         #widths = c(1,2)
-        widths = c(1,0.5,0.5,2),
+        widths = c(1,1,1,1),
         bottom=paste0("ATRT Classifier - For Research Only")
         
       )
     } else if(report_type == "Summary"){
-      #plot_grid(tableGrob(t.result), agg.ALL.p, agg.ALL.bar = c('A', 'B','C'))
+      #plot_grid(tableGrob(t.result), agg.dot.p, agg.stacked_bar.p = c('A', 'B','C'))
       grid.arrange(
         top = paste0("Test Result Summary - ",SAMPLE),
         tableGrob(t.result),
-        arrangeGrob(arrangeGrob(agg.ALL.bar,all.horbar.p, ncol=2, widths = c(0.8,1),top=paste0("Fig.1 - Models agreement")),
+        arrangeGrob(arrangeGrob(agg.stacked_bar.p,full.horizontal_bar.p, ncol=2, widths = c(0.8,1),top=paste0("Fig.1 - Models agreement")),
                     arrangeGrob(agg.ALL.p, widths = 1, top=paste0("Fig.2 - ",plot_title," by class")),
                     ncol=1),
-        
         ncol = 2,
         #widths = c(2,1,0.5),
         bottom=paste0("ATRT Classifier - For Research Only")
@@ -1542,13 +1612,9 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
         
       )
      }
-  } # for loop
+  } # SAMPLE for loop
   
   dev.off()
-  
-  ##### Output #####
-  
-  #if(!is.null(prefix)){prefix <- paste0(prefix,"_")} ran above
   
   if(print_report == TRUE){
     write.table(test_results_agg, file=paste0(out_path,"/",prefix,"test_summary_aggregate.txt"), sep = "\t", col.names = NA)
@@ -1557,7 +1623,7 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
   
   data$test_summary <- t.result.list
   return(data)
-} # end of plot
+}
 
 
 # install.packages("ResourceSelection")
