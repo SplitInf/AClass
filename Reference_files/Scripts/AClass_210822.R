@@ -254,83 +254,88 @@ process.raw <- function(work_path=getwd(), raw_path=NULL, keep_file_path=NULL, o
 # all parameters matches with process.raw() except:
 # raw_dir_path  expects multiple raw folders stored within this path.
 
-batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep_file_path=NULL, omit_file_path=NULL, prefix=NULL, SampleContent = "housekeeping.geo.mean"){
+batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep_file_path=NULL, omit_file_path=NULL, prefix=NULL, SampleContent = "housekeeping.geo.mean", mode=c("batch","combined")){
   
-  # get path to csv's
-  raw_dir <- as.data.frame(list.files(path = raw_dir_path, pattern = ".*NormalizedData.*.csv", recursive = TRUE, full.names=TRUE))
-  raw_dir <- apply(raw_dir,1,function(x) unlist(strsplit(gsub(paste0(raw_dir_path,"/"),"",x),split = "/"))[1] )
-  raw_dir <- unique(raw_dir)
   
-  raw.obj <- list()
-  for (i in raw_dir) {
-    print(paste0("[MGS] Processing dir: ", i))
-    raw_path_i <- paste0(raw_dir_path,"/",i)
-    train.i <- process.raw(work_path=work_path, raw_path=raw_path_i, keep_file_path=keep_file_path, omit_file_path=omit_file_path, prefix=prefix, SampleContent = SampleContent)
-    ### merging results from multiple batches ###
-
-    ## run_info ##
-    # csv #
-    if(is.null(raw.obj$run_info$csv)) {
-      raw.obj$run_info$csv <- train.i$run_info$csv
-    } else {
-      raw.obj$run_info$csv <- c(raw.obj$run_info$csv,train.i$run_info$csv)
-    }
-    # samples_found #
-    if(is.null(raw.obj$run_info$samples_found)) {
-      raw.obj$run_info$samples_found <- train.i$run_info$samples_found
-    } else {
-      samples_found.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_found,split = " "))[1])
-      samples_found.full <- as.numeric(unlist(strsplit(raw.obj$run_info$samples_found,split = " "))[1])
-      raw.obj$run_info$samples_found <- paste0(samples_found.i+samples_found.full, " samples found.")
-    }
-    # samples_loaded #
-    if(is.null(raw.obj$run_info$samples_loaded)) {
-      raw.obj$run_info$samples_loaded <- train.i$run_info$samples_loaded
-    } else {
-      samples_loaded.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_loaded,split = " "))[1])
-      samples_loaded.full <- as.numeric(unlist(strsplit(raw.obj$run_info$samples_loaded,split = " "))[1])
-      raw.obj$run_info$samples_loaded <- paste0(samples_loaded.i+samples_loaded.full, " samples loaded.")
-    }
-    ## run_id ##
-    if(is.null(raw.obj$run_info$run_id)) {
-      raw.obj$run_info$run_id <- train.i$run_info$run_id
-    } else {
-      raw.obj$run_info$run_id <- c(raw.obj$run_info$run_id,train.i$run_info$run_id)
-    }
-    ## $raw, $prenorm_qc $norm, $norm.t
-    merge_df_by_rowname <- function(a,b,df){
-      print(a)
-      if(df == "raw"){
-        header <- c("Code.Class", "Name", "Accession")
-        a[[df]] <- merge(a[[df]] , b[[df]], by=header)
-      } else if(df != "raw"){
-        a[[df]] <- merge(a[[df]] , b[[df]], by="row.names")
-        row.names(a[[df]]) <- a[[df]][,1]
-        a[[df]] <- a[[df]][,-1]
+  if(mode=="batch"){
+    # get path to csv's
+    raw_dir <- as.data.frame(list.files(path = raw_dir_path, pattern = ".*NormalizedData.*.csv", recursive = TRUE, full.names=TRUE))
+    raw_dir <- apply(raw_dir,1,function(x) unlist(strsplit(gsub(paste0(raw_dir_path,"/"),"",x),split = "/"))[1] )
+    raw_dir <- unique(raw_dir)
+    
+    raw.obj <- list()
+    for (i in raw_dir) {
+      print(paste0("[MGS] Processing dir: ", i))
+      raw_path_i <- paste0(raw_dir_path,"/",i)
+      train.i <- process.raw(work_path=work_path, raw_path=raw_path_i, keep_file_path=keep_file_path, omit_file_path=omit_file_path, prefix=prefix, SampleContent = SampleContent)
+      ### merging results from multiple batches ###
+  
+      ## run_info ##
+      # csv #
+      if(is.null(raw.obj$run_info$csv)) {
+        raw.obj$run_info$csv <- train.i$run_info$csv
+      } else {
+        raw.obj$run_info$csv <- c(raw.obj$run_info$csv,train.i$run_info$csv)
       }
-      return(a[[df]])
+      # samples_found #
+      if(is.null(raw.obj$run_info$samples_found)) {
+        raw.obj$run_info$samples_found <- train.i$run_info$samples_found
+      } else {
+        samples_found.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_found,split = " "))[1])
+        samples_found.full <- as.numeric(unlist(strsplit(raw.obj$run_info$samples_found,split = " "))[1])
+        raw.obj$run_info$samples_found <- paste0(samples_found.i+samples_found.full, " samples found.")
+      }
+      # samples_loaded #
+      if(is.null(raw.obj$run_info$samples_loaded)) {
+        raw.obj$run_info$samples_loaded <- train.i$run_info$samples_loaded
+      } else {
+        samples_loaded.i <- as.numeric(unlist(strsplit(train.i$run_info$samples_loaded,split = " "))[1])
+        samples_loaded.full <- as.numeric(unlist(strsplit(raw.obj$run_info$samples_loaded,split = " "))[1])
+        raw.obj$run_info$samples_loaded <- paste0(samples_loaded.i+samples_loaded.full, " samples loaded.")
+      }
+      ## run_id ##
+      if(is.null(raw.obj$run_info$run_id)) {
+        raw.obj$run_info$run_id <- train.i$run_info$run_id
+      } else {
+        raw.obj$run_info$run_id <- c(raw.obj$run_info$run_id,train.i$run_info$run_id)
+      }
+      ## $raw, $prenorm_qc $norm, $norm.t
+      merge_df_by_rowname <- function(a,b,df){
+        print(a)
+        if(df == "raw"){
+          header <- c("Code.Class", "Name", "Accession")
+          a[[df]] <- merge(a[[df]] , b[[df]], by=header)
+        } else if(df != "raw"){
+          a[[df]] <- merge(a[[df]] , b[[df]], by="row.names")
+          row.names(a[[df]]) <- a[[df]][,1]
+          a[[df]] <- a[[df]][,-1]
+        }
+        return(a[[df]])
+      }
+      
+      if(is.null(raw.obj$raw)){
+        raw.obj$raw <- train.i$raw
+      } else {
+        raw.obj$raw <- merge_df_by_rowname(a=raw.obj, b=train.i, df="raw")
+      }
+      
+      if(is.null(raw.obj$prenorm_qc)){
+        raw.obj$prenorm_qc <- train.i$prenorm_qc
+      } else {
+        raw.obj$prenorm_qc <- rbind(raw.obj$prenorm_qc, train.i$prenorm_qc)
+      }
+      
+      if(is.null(raw.obj$norm)){
+        raw.obj$norm <- train.i$norm
+      } else {
+        raw.obj$norm <- merge_df_by_rowname(a=raw.obj, b=train.i, df="norm")
+      }
+      
+      raw.obj$norm.t <- as.data.frame(t(raw.obj$norm))
+      
     }
-    
-    if(is.null(raw.obj$raw)){
-      raw.obj$raw <- train.i$raw
-    } else {
-      raw.obj$raw <- merge_df_by_rowname(a=raw.obj, b=train.i, df="raw")
-    }
-    
-    if(is.null(raw.obj$prenorm_qc)){
-      raw.obj$prenorm_qc <- train.i$prenorm_qc
-    } else {
-      raw.obj$prenorm_qc <- rbind(raw.obj$prenorm_qc, train.i$prenorm_qc)
-    }
-    
-    if(is.null(raw.obj$norm)){
-      raw.obj$norm <- train.i$norm
-    } else {
-      raw.obj$norm <- merge_df_by_rowname(a=raw.obj, b=train.i, df="norm")
-    }
-    
-    raw.obj$norm.t <- as.data.frame(t(raw.obj$norm))
-    
+  } else if (mode=="combined"){
+    raw.obj <- process.raw(work_path=work_path, raw_path=raw_dir_path, keep_file_path=keep_file_path, omit_file_path=omit_file_path, prefix=prefix, SampleContent = SampleContent, recursive_read = TRUE)
   }
   
   return(raw.obj)
@@ -417,9 +422,12 @@ nano.load <- function(raw_path = getwd(), keep_file_path="", omit_file_path="", 
     Sample_names <- info[1,4:ncol(info)] # get sample names
     colnames(raw) <- c(header,Sample_names)
 
-    raw.summary[["csv"]][[nanofile]] <- paste0(dim(raw)[1]," features ", dim(raw)[2]-3, " samples.")
+    # run details
+    raw.summary[["csv"]][[nanofile]][["details"]] <- list()
+    raw.summary[["csv"]][[nanofile]][["details"]]$found <- paste0(dim(raw)[1]," features ", dim(raw)[2]-3, " samples.")
+    raw.summary[["csv"]][[nanofile]][["details"]]$samples <- colnames(raw[,-c(1:3)])
     
-    print(paste0("[MSG] Loading ",raw.summary[["csv"]][[nanofile]]))
+    print(paste0("[MSG] Loading ",raw.summary[["csv"]][[nanofile]][["details"]]$found))
     
     if (ncol(raw.merge)==0) {
       raw.merge <- raw
@@ -1867,9 +1875,10 @@ choose_directory = function(caption = 'Select data directory') {
 #' nano.MDS(prefix = project_prefix, data=train, plot_type = "ggplot",data_name = "norm.t")
 
 
-nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","plotly"), data_name = c("norm.t","train.data.main","train.data.validate")){
+nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggplot_label","ggplot_label_batch","plotly"), data_name = c("norm.t","train.data.main","train.data.validate")){
   
   data.df <- data[[data_name]]
+  data.csv <- data[["run_info"]]$csv
   
   if (data_name %in% c("train.data.main","train.data.validate")){
     if(is.null(data[[data_name]]$Group)){
@@ -1901,6 +1910,16 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","plot
     groupcol[is.na(groupcol)] <- "black"
   }
 
+  #batch info#
+  batch_details <- data.frame()
+  for(i in 1:length(data.csv)){
+    batch_details_i <- data.frame(Sample=data.csv[[i]]$details$samples,Batch=names(data.csv[i]))
+    if(is.null(nrow(batch_details))){
+      batch_details <- batch_details_i
+    } else {
+      batch_details <- rbind(batch_details,batch_details_i)
+    }
+  }
   
   # sample N check #
   if(ncol(data.df) <3){
@@ -1915,16 +1934,22 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","plot
       PlotTitle <- prefix
 
       # obtain MDS matrix #
+      pdf(file = NULL) # prevent writing file
       mds <- limma::plotMDS(data.df,pch=19, main=PlotTitle)
+      dev.off()
       group[is.na(group)] <- "black"
       #mds.anno <- merge(mds$cmdscale.out,group, by="row.names") # limma depreciated since 3.48.0 
       mds_2d_matrix <- data.frame(x=mds$x, y=mds$y)
       row.names(mds_2d_matrix) <- row.names(mds$distance.matrix.squared)
       mds.anno <- merge(mds_2d_matrix,group, by="row.names")
-      
       colnames(mds.anno) <- c("Sample","X","Y","Group")
+      
+      mds.anno <- merge(mds.anno, batch_details, by="Sample")
+      
+      dot_size <- 4
+      
       mds.p <- ggplot(mds.anno, aes(x=X, y=Y, label=Sample, color=Group)) + 
-        geom_point(size=2) +
+        geom_point(size=dot_size, colour="black") +
         scale_color_manual(values = as.character(col_code$Group_Colour)) +
         #scale_color_manual(values = as.character(groupcol)) + # not correct
         xlab(label = "MDS1")+
@@ -1937,9 +1962,10 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","plot
         theme(plot.title = element_text(hjust = 0.5)) +
         theme(panel.grid.major = element_blank(), 
               panel.grid.minor = element_blank(),
-              panel.background = element_rect(colour = "black", size=1))
+              panel.background = element_rect(colour = "black", size=1))+
+        theme(legend.position="bottom")
 
-      mds.p.plotly <- ggplotly(mds.p)
+      mds.p.plotly <- plotly::ggplotly(mds.p)
       ## box plot ##
       if (plot_type == "boxplot"){
         boxplot(data.df,range=0,ylab="log2 intensity") #intensity runs from 5 to 16 on log2 scale
@@ -1956,6 +1982,13 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","plot
       } else if (plot_type == "ggplot_label"){
         mds.p <- mds.p +geom_text_repel(aes(label = Sample))
         print(mds.p)
+      } else if (plot_type == "ggplot_label_batch"){
+        mds.p <- mds.p + geom_point(data = mds.anno, aes(color=Batch, size = dot_size)) + scale_color_manual(values = as.factor(c(unique(mds.anno$Batch),"black")))
+        print(mds.p)
+      } else if (plot_type == "plotly_batch"){
+        mds.p <- mds.p + geom_point(data = mds.anno, aes(color=Batch, size = dot_size)) + scale_color_manual(values = as.factor(c(unique(mds.anno$Batch),"black")))
+        print(plotly::ggplotly(mds.p)) # doesn't work when save to anther variable
+        
       }
       
       
@@ -2025,11 +2058,12 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 #' @param out_path output path. When not provided out_path will be extracted from run_info (default)
 #' @param in_path input location for *_test_summary.txt. Default to getwd().
 
-nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Probability", anno_table=NULL, training_memberships_path=NULL, GeoMean_thres=0, out_path=NULL, input_path=getwd()){
+nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Probability", anno_table=NULL, training_memberships_path=NULL, GeoMean_thres=0, out_path=NULL, in_path=getwd(), recursive_read=FALSE){
   
   ### check ###
   if(is.null(out_path)){
-    out_path = paste(getwd(),data$run_info$run_id[1], sep = "/")
+    #out_path = paste(getwd(),data$run_info$run_id[1], sep = "/") # don't need data
+    out_path = getwd()
   }
   
   if(!is.null(anno_table)){
@@ -2040,22 +2074,22 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
     stop("[MSG] training_memberships_path is required")
   } else if (!is.null(training_memberships_path)){
     anno <- read.table(training_memberships_path, header = FALSE, sep = "\t")
-    if(!ncol(anno) != 2){
+    if(ncol(anno) != 2){
       stop("[MSG] Expects 2 columns and header with nano_filename in column 1 and and Class in column 2. ")
     }
-    colnames(anno) <- c("nano_filename","Class")
+    colnames(anno) <- c("Sample","Ground_Truth")
   }
   
-  if(is.null(use_class)){
-    
-  }
+  # if(is.null(use_class)){
+  #   
+  # }
   
   summary_file.df <- summary_file.agg.df <- summary_file.full.df <- data.frame()
   Test_Summary_Overall <- Test_Summary_Stats <- Test_Summary <- conf_matrix_list <-list()
   WD <- prefix
   ## Load Recursively ##
   # test summary
-  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,"*_test_summary.txt"), recursive = FALSE)){
+  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,".*_test_summary.txt"), recursive = recursive_read, full.names = TRUE)){
        if(is.null(summary_file)){
          stop("[MSG] Can't find *test_summary.txt. Did you run nano.plot()?")
        }      
@@ -2063,7 +2097,7 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
     summary_file.df <- rbind(summary_file.df,summary_file.df.i)
   }
   # test_summary_aggregate
-  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,"*_test_summary_aggregate.txt"), recursive = FALSE)){
+  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,".*_test_summary_aggregate.txt"), recursive = recursive_read, full.names = TRUE)){
     if(is.null(summary_file)){
       stop("[MSG] Can't find *_test_summary_aggregate.txt. Did you run nano.plot()?")
     } 
@@ -2071,7 +2105,7 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
     summary_file.agg.df <- rbind(summary_file.agg.df,summary_file.agg.df.i)
   }
   #testing_summary_full
-  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,"*_testing_summary_full.txt"), recursive = FALSE)){
+  for (summary_file in list.files(path=in_path, pattern = paste0(prefix,".*_testing_summary_full.txt"), recursive = recursive_read, full.names = TRUE)){
     if(is.null(summary_file)){
       stop("[MSG] Can't find *_testing_summary_full.txt. Did you run nano.plot()?")
     } 
@@ -2080,9 +2114,9 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
   }
   
   ## Annotate ##
-  #summary_file.df.anno.full <- merge(summary_file.df, anno, by.x="Sample",by.y="Nanostring_ID_fixed")
-  summary_file.df.anno.full <- merge(summary_file.df, anno, by.x="Sample",by.y="nano_filename")
-  row.names(summary_file.df.anno.full) <- summary_file.df.anno.full[,1]
+  #summary_file.df.anno.full <- merge(summary_file.df, anno, by.x="Sample",by.y="Sample")
+  summary_file.df.anno.full <- merge(summary_file.df, anno, by.x="Sample",by.y="Sample")
+  #row.names(summary_file.df.anno.full) <- summary_file.df.anno.full[,1] # not necessary and commenting out allow duplicate row names
   
   # change factor order #
 
@@ -2090,16 +2124,16 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
   #summary_file.df.anno.full$Class <- factor(summary_file.df.anno.full$Class, levels = c("Group1","Group2","NA"))
   summary_file.df.anno.full$Class <- factor(summary_file.df.anno.full$Class, levels = use_class)
   
-  ## summary_file.df.anno.full$Subgroup <- factor(summary_file.df.anno.full$Subgroup, levels = c("Group1","Group2A","Group2B"))
-  #summary_file.df.anno.full$Subgroup <- factor(summary_file.df.anno.full$Subgroup, levels = c("Group1","Group2","NA"))
-  summary_file.df.anno.full$Subgroup <- factor(summary_file.df.anno.full$Subgroup, levels = use_class)
+  ## summary_file.df.anno.full$Ground_Truth <- factor(summary_file.df.anno.full$Ground_Truth, levels = c("Group1","Group2A","Group2B"))
+  #summary_file.df.anno.full$Ground_Truth <- factor(summary_file.df.anno.full$Ground_Truth, levels = c("Group1","Group2","NA"))
+  summary_file.df.anno.full$Ground_Truth <- factor(summary_file.df.anno.full$Ground_Truth, levels = use_class)
   
-  summary_file.df.anno.full$Matching_class <- ifelse(summary_file.df.anno.full$Subgroup == summary_file.df.anno.full$Class, 1, 0)
+  summary_file.df.anno.full$Matching_class <- ifelse(summary_file.df.anno.full$Ground_Truth == summary_file.df.anno.full$Class, 1, 0)
   
-  #summary_file.agg.df.anno <- merge(summary_file.agg.df, anno, by.x="Sample", by.y="Nanostring_ID_fixed")
-  summary_file.agg.df.anno <- merge(summary_file.agg.df, anno, by.x="Sample", by.y="nano_filename")  
-  #summary_file.full.df.anno <- merge(summary_file.full.df, anno, by.x="Sample", by.y="Nanostring_ID_fixed")
-  summary_file.full.df.anno <- merge(summary_file.full.df, anno, by.x="Sample", by.y="nano_filename")
+  #summary_file.agg.df.anno <- merge(summary_file.agg.df, anno, by.x="Sample", by.y="Sample")
+  summary_file.agg.df.anno <- merge(summary_file.agg.df, anno, by.x="Sample", by.y="Sample")  
+  #summary_file.full.df.anno <- merge(summary_file.full.df, anno, by.x="Sample", by.y="Sample")
+  summary_file.full.df.anno <- merge(summary_file.full.df, anno, by.x="Sample", by.y="Sample")
   ## Remove Failed Samples ##
   
   # skip for now
@@ -2124,7 +2158,7 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
     summary_file.df.anno.i <- summary_file.df.anno[summary_file.df.anno[,prob] >= Prob,]
     
     N_Pass_Prob <- nrow(summary_file.df.anno.i)
-    confmat.i <- confusionMatrix(summary_file.df.anno.i$Class, summary_file.df.anno.i$Subgroup, positive = NULL)
+    confmat.i <- confusionMatrix(summary_file.df.anno.i$Class, summary_file.df.anno.i$Ground_Truth, positive = NULL)
     #conf_matrix_list[[eval(paste0(alg,"_",i))]] <- confmat.i
     conf_matrix_list[[as.character(Prob)]] <- confmat.i
     
@@ -2137,12 +2171,12 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
     GRP_Count <- data.frame()
     
     for(GRP in sort(unique(Subgroup_Accuracy_Table.i$Class))){
-      Summary_file.df.anno.i.GRP.True <- summary_file.df.anno.i[summary_file.df.anno.i$Subgroup == GRP,,drop=FALSE]
+      Summary_file.df.anno.i.GRP.True <- summary_file.df.anno.i[summary_file.df.anno.i$Ground_Truth == GRP,,drop=FALSE]
       N_Pass_Prob.GRP.True <- nrow(Summary_file.df.anno.i.GRP.True)
       TP <- nrow(Summary_file.df.anno.i.GRP.True[Summary_file.df.anno.i.GRP.True$Class == GRP,])
       FN <- nrow(Summary_file.df.anno.i.GRP.True[Summary_file.df.anno.i.GRP.True$Class != GRP,])
       
-      Summary_file.df.anno.i.GRP.False <- summary_file.df.anno.i[summary_file.df.anno.i$Subgroup != GRP,,drop=FALSE]
+      Summary_file.df.anno.i.GRP.False <- summary_file.df.anno.i[summary_file.df.anno.i$Ground_Truth != GRP,,drop=FALSE]
       N_Pass_Prob.GRP.False <- nrow(Summary_file.df.anno.i.GRP.False)
       TN <- nrow(Summary_file.df.anno.i.GRP.False[Summary_file.df.anno.i.GRP.False$Class != GRP,])
       FP <- nrow(Summary_file.df.anno.i.GRP.False[Summary_file.df.anno.i.GRP.False$Class == GRP,])
@@ -2183,8 +2217,8 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
   length(Test_Summary_Stats)
   # export as excel #
   #Sys.setenv("R_ZIPCMD" = "C:/Rtools/bin/zip.exe")
-  openxlsx::write.xlsx(Test_Summary_Stats, file = paste0(out_path,"/",prefix,"_Test_Summary_Stats.xlsx"))
-  openxlsx::write.xlsx(Test_Summary, file = paste0(out_path,"/",prefix,"_Test_Summary.xlsx"))
+  openxlsx::write.xlsx(Test_Summary_Stats, file = paste0(out_path,"/",prefix,"_Test_Summary_Stats.xlsx"), overwrite = TRUE)
+  openxlsx::write.xlsx(Test_Summary, file = paste0(out_path,"/",prefix,"_Test_Summary.xlsx"), overwrite = TRUE)
   saveRDS(conf_matrix_list, file = paste0(out_path,"/",prefix,"_conf_matrix_list.RDS"))
   
   Test_Summary_Overall[["overall_accuracy"]] <- sum(Test_Summary[[1]]$Matching_class) / length(Test_Summary[[1]]$Matching_class)
