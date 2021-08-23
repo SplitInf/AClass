@@ -2228,7 +2228,7 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
   openxlsx::write.xlsx(Test_Summary_Stats, file = paste0(out_path,"/",prefix,"Test_Summary_Stats.xlsx"), overwrite = TRUE)
   openxlsx::write.xlsx(Test_Summary, file = paste0(out_path,"/",prefix,"Test_Summary.xlsx"), overwrite = TRUE)
   saveRDS(conf_matrix_list, file = paste0(out_path,"/",prefix,"conf_matrix_list.RDS"))
-  saveRDS(conf_matrix_list, file = paste0(out_path,"/",prefix,"conf_matrix_overall.RDS"))
+  saveRDS(Test_Summary_Overall, file = paste0(out_path,"/",prefix,"conf_matrix_overall.RDS"))
   
   return(Test_Summary_Overall)
 }
