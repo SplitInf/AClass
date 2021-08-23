@@ -2338,7 +2338,7 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
   
   #add test results #
   if(!is.null(prob)){
-    data_test_results$prob <- data_test_results[,prob]
+    data_test_results$pred_score <- data_test_results[,prob]
     mds.anno <- merge(mds.anno, data_test_results, by="Sample", all.x = TRUE)
   }
 
@@ -2348,17 +2348,17 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
   # add colors #
   if(is.null(prob)){
     
-    mds.p <- mds.p + geom_point(aes(color=Group,group=Type), size=3) 
+    mds.p <- mds.p + geom_point(aes(color=Group,shape=Type), size=3) 
   } else if(!is.null(prob)){
 
     #qn = quantile(mds.anno$prob, c(0.01, 0.99), na.rm = TRUE)
-    #qn01 <- rescale(c(qn, range(mds.anno$prob))) 
+    #qn01 <- rescale(c(qn, range(mds.anno$pred_score))) 
     #fill.colors <- colorRampPalette(c("darkblue", "white", "darkred"))(20)
     #mds.p <- 
-      #mds.p + geom_point(aes(color=prob), size=3) + 
+      #mds.p + geom_point(aes(color=pred_score), size=3) + 
       #scale_colour_gradientn(colours = fill.colors, breaks=seq(0,1,0.1), values = c(0,seq(qn01[1], qn01[2], length.out = 18),1), na.value = "whitesmoke", limits=c(0,1))
       
-      mds.p<-  mds.p + geom_point(aes(color=prob), size=3) + 
+      mds.p<-  mds.p + geom_point(aes(color=pred_score,shape=Type), size=3) + 
         scale_colour_gradientn(colours = c("red", "yellow", "darkgreen"), breaks=seq(0,1,0.1), values =c(0,0.7,1), na.value = "grey", limits=c(0,1))
     #scale_colour_gradient2(low="red",mid="yellow",high="green",  midpoint = 0.7, breaks=c(0,0.7,1))
     #scale_colour_gradient(low="red",high="green", midpoint = 0.7)
