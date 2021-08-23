@@ -2348,7 +2348,7 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
   # add colors #
   if(is.null(prob)){
     
-    mds.p <- mds.p + geom_point(aes(color=Group,shape=Type), size=3) 
+    mds.p <- mds.p + geom_point(aes(color=Group,shape=Type), size=4)  + scale_color_manual(values = as.character(col_code$Group_Colour))
   } else if(!is.null(prob)){
 
     #qn = quantile(mds.anno$prob, c(0.01, 0.99), na.rm = TRUE)
@@ -2358,7 +2358,7 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
       #mds.p + geom_point(aes(color=pred_score), size=3) + 
       #scale_colour_gradientn(colours = fill.colors, breaks=seq(0,1,0.1), values = c(0,seq(qn01[1], qn01[2], length.out = 18),1), na.value = "whitesmoke", limits=c(0,1))
       
-      mds.p<-  mds.p + geom_point(aes(color=pred_score,shape=Type), size=3) + 
+      mds.p<-  mds.p + geom_point(aes(color=pred_score,shape=Type), size=4) + 
         scale_colour_gradientn(colours = c("red", "yellow", "darkgreen"), breaks=seq(0,1,0.1), values =c(0,0.7,1), na.value = "grey", limits=c(0,1))
     #scale_colour_gradient2(low="red",mid="yellow",high="green",  midpoint = 0.7, breaks=c(0,0.7,1))
     #scale_colour_gradient(low="red",high="green", midpoint = 0.7)
@@ -2378,7 +2378,7 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
     theme(panel.grid.major = element_blank(), 
           panel.grid.minor = element_blank(),
           panel.background = element_rect(colour = "black", size=1)) +
-    theme(legend.key.height = unit(1,"inches"))
+    theme(legend.key.height = unit(0.75,"inches"))
   
   ### Output ###
   
