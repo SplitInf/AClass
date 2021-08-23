@@ -1877,31 +1877,31 @@ choose_directory = function(caption = 'Select data directory') {
 
 nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggplot_label","ggplot_label_batch","plotly"), data_name = c("norm.t","train.data.main","train.data.validate")){
   
-  data.df <- data[[data_name]]
-  data.csv <- data[["run_info"]]$csv
+  data_df <- data[[data_name]]
+  data_csv <- data[["run_info"]]$csv
   
   if (data_name %in% c("train.data.main","train.data.validate")){
     if(is.null(data[[data_name]]$Group)){
       stop("[MSG] Data must have Group labels. Did you run nano.trainsplit()?")
     }
-    group <- data.df[,"Group",drop=FALSE]
-    data.df <- data.frame(t(subset(data.df, selec = -Group)))
+    group <- data_df[,"Group",drop=FALSE]
+    data_df <- data.frame(t(subset(data_df, selec = -Group)))
   } else if (data_name %in% "norm.t"){
     if(!is.null(data[["test_results"]])){
       print(paste0("[MSG] Applying test_results to plot..."))
-      group <- data.frame(matrix(nrow=nrow(data.df), ncol=1, data$test_results$Class))
+      group <- data.frame(matrix(nrow=nrow(data_df), ncol=1, data$test_results$Class))
     } else {
-      group <- data.frame(matrix(nrow=nrow(data.df), ncol=1, rep(NA,nrow(data.df))))
+      group <- data.frame(matrix(nrow=nrow(data_df), ncol=1, rep(NA,nrow(data_df))))
     } 
     colnames(group) <- "Group"
-    row.names(group) <- row.names(data.df)
-    data.df <- data.frame(t(data.df))
+    row.names(group) <- row.names(data_df)
+    data_df <- data.frame(t(data_df))
   }
   
   # assign colour by colour_code or "black" if not present
   if(is.null(data$colour_code)){
     print(paste0("[MSG] colour code not detected, using default colours"))
-    groupcol <- rep("black",nrow(data.df))
+    groupcol <- rep("black",nrow(data_df))
     col_code <- data.frame(Group=as.factor(c("Samples")),Group_Colour=c("black"), stringsAsFactors = FALSE)
   } else {
     col_code <- data$colour_code
@@ -1912,8 +1912,8 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
 
   #batch info#
   batch_details <- data.frame()
-  for(i in 1:length(data.csv)){
-    batch_details_i <- data.frame(Sample=data.csv[[i]]$details$samples,Batch=names(data.csv[i]))
+  for(i in 1:length(data_csv)){
+    batch_details_i <- data.frame(Sample=data_csv[[i]]$details$samples,Batch=names(data_csv[i]))
     if(is.null(nrow(batch_details))){
       batch_details <- batch_details_i
     } else {
@@ -1922,7 +1922,7 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
   }
   
   # sample N check #
-  if(ncol(data.df) <3){
+  if(ncol(data_df) <3){
     print("[MSG] Data must have minimum 3 samples to run nano.MDS().")
   } else {
       
@@ -1935,7 +1935,7 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
 
       # obtain MDS matrix #
       pdf(file = NULL) # prevent writing file
-      mds <- limma::plotMDS(data.df,pch=19, main=PlotTitle)
+      mds <- limma::plotMDS(data_df,pch=19, main=PlotTitle)
       dev.off()
       group[is.na(group)] <- "black"
       #mds.anno <- merge(mds$cmdscale.out,group, by="row.names") # limma depreciated since 3.48.0 
@@ -1968,12 +1968,12 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
       mds.p.plotly <- plotly::ggplotly(mds.p)
       ## box plot ##
       if (plot_type == "boxplot"){
-        boxplot(data.df,range=0,ylab="log2 intensity") #intensity runs from 5 to 16 on log2 scale
+        boxplot(data_df,range=0,ylab="log2 intensity") #intensity runs from 5 to 16 on log2 scale
       }
       ## MDS plot ##
       if (plot_type == "plot"){
-        limma::plotMDS(data.df, pch=19, col = groupcol, main=PlotTitle) # point and color
-        limma::plotMDS(data.df,labels=colnames(data.df), pch=19, cex=0.5) # labels and color
+        limma::plotMDS(data_df, pch=19, col = groupcol, main=PlotTitle) # point and color
+        limma::plotMDS(data_df,labels=colnames(data_df), pch=19, cex=0.5) # labels and color
       }
       ## MDS ggplot ##
       if (plot_type == "ggplot"){
@@ -2254,10 +2254,11 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
 #'  library(reshape2)
 #' nano.MDS(prefix = prefix, data=train, plot_type = "ggplot",data_name = "norm.t")
 
-nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, plot_type = c("plot","ggplot","ggplot_label", "ggplot_label_test", "plotly"), train_ellipse=FALSE, memberships=NULL, gene_list=NULL, omit_sample=NULL){
+nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, plot_type = c("plot","ggplot","ggplot_label", "ggplot_label_test", "plotly"), train_ellipse=FALSE, memberships=NULL, gene_list=NULL, omit_sample=NULL, prob=NULL){
 
   data_train <- train.data$train.data.main
   data_test <- test.data$norm.t
+  data_test_results <- test.data$test_results
 
   if(is.null(memberships)){
     
@@ -2335,9 +2336,36 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
   mds.anno <- merge(mds_2d_matrix,group, by="row.names")
   colnames(mds.anno) <- c("Sample","X","Y","Group","Type")
   
-  mds.p <- ggplot(mds.anno, aes(x=X, y=Y, label=Sample, color=Group,group=Type)) + 
-    geom_point(aes(shape=Type), size=3) +
-    scale_color_manual(values = as.character(col_code$Group_Colour)) +
+  #add test results #
+  if(!is.null(prob)){
+    data_test_results$prob <- data_test_results[,prob]
+    mds.anno <- merge(mds.anno, data_test_results, by="Sample", all.x = TRUE)
+  }
+
+  # base plot #
+  mds.p <- ggplot(mds.anno, aes(x=X,y=Y, label=Sample))
+
+  # add colors #
+  if(is.null(prob)){
+    
+    mds.p <- mds.p + geom_point(aes(color=Group,group=Type), size=3) 
+  } else if(!is.null(prob)){
+
+    #qn = quantile(mds.anno$prob, c(0.01, 0.99), na.rm = TRUE)
+    #qn01 <- rescale(c(qn, range(mds.anno$prob))) 
+    #fill.colors <- colorRampPalette(c("darkblue", "white", "darkred"))(20)
+    #mds.p <- 
+      #mds.p + geom_point(aes(color=prob), size=3) + 
+      #scale_colour_gradientn(colours = fill.colors, breaks=seq(0,1,0.1), values = c(0,seq(qn01[1], qn01[2], length.out = 18),1), na.value = "whitesmoke", limits=c(0,1))
+      
+      mds.p<-  mds.p + geom_point(aes(color=prob), size=3) + 
+        scale_colour_gradientn(colours = c("red", "yellow", "darkgreen"), breaks=seq(0,1,0.1), values =c(0,0.7,1), na.value = "grey", limits=c(0,1))
+    #scale_colour_gradient2(low="red",mid="yellow",high="green",  midpoint = 0.7, breaks=c(0,0.7,1))
+    #scale_colour_gradient(low="red",high="green", midpoint = 0.7)
+  }
+  
+  # add image format #
+  mds.p <-mds.p +
     scale_shape_manual(values=c(1, 19)) +
     xlab(label = "MDS1")+
     ylab(label = "MDS2")+
@@ -2349,7 +2377,8 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
     theme(plot.title = element_text(hjust = 0.5)) +
     theme(panel.grid.major = element_blank(), 
           panel.grid.minor = element_blank(),
-          panel.background = element_rect(colour = "black", size=1))
+          panel.background = element_rect(colour = "black", size=1)) +
+    theme(legend.key.height = unit(1,"inches"))
   
   ### Output ###
   
