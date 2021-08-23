@@ -378,7 +378,7 @@ classify.data <- function(work_path=getwd(), data, prefix, training_model_obj, a
   # [7] Consolidate results
   # choose min max range based on model accuracy
   test.obj <- get.nano.test.results(prefix,test.obj, out_path = out_path)
-  saveRDS(test.obj, file = paste0(out_path,"/",prefix,"_test.data.tested.RDS"))
+  #saveRDS(test.obj, file = paste0(out_path,"/",prefix,"_test.data.tested.RDS"))
   
   # [8] Set Colour Code based on pre-trained models
   group <- unique(training_model_obj$train.data.main$Group)
@@ -386,7 +386,7 @@ classify.data <- function(work_path=getwd(), data, prefix, training_model_obj, a
   
   # [9] Generate report
   test.obj <- nano.plot(prefix = prefix, data = test.obj, prob= "Avg_Probability", report_type="Summary", print_report = TRUE, thres_avg_prob=0, thres_geomean = 100, out_path=out_path)
-  
+  saveRDS(test.obj, file = paste0(out_path,"/",prefix,"_test.data.tested.RDS"))
   return(test.obj)
 }
 
