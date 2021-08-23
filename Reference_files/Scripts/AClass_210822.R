@@ -638,7 +638,7 @@ nano.prep <- function(data){
 #' @param training_memberships_path Normalized dataframe.
 #' @param N.train.per ## percentage of training samples use for training, the remaining would be used for validation e.g. 0.8
 #' @param have_test_label If ground truth labels are avaliable for test data
-#' @param interger to set seed when needing to wrap function in loop
+#' @param seed interger to set seed when needing to wrap function in loop
 #' @return train.idx
 #' @example
 #' train.idx<-  nano.trainsplit(train.data,training_memberships_path, 0.8, FALSE)
@@ -2215,15 +2215,21 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
   #} # end of folder loop
   
   length(Test_Summary_Stats)
-  # export as excel #
-  #Sys.setenv("R_ZIPCMD" = "C:/Rtools/bin/zip.exe")
-  openxlsx::write.xlsx(Test_Summary_Stats, file = paste0(out_path,"/",prefix,"_Test_Summary_Stats.xlsx"), overwrite = TRUE)
-  openxlsx::write.xlsx(Test_Summary, file = paste0(out_path,"/",prefix,"_Test_Summary.xlsx"), overwrite = TRUE)
-  saveRDS(conf_matrix_list, file = paste0(out_path,"/",prefix,"_conf_matrix_list.RDS"))
   
   Test_Summary_Overall[["overall_accuracy"]] <- sum(Test_Summary[[1]]$Matching_class) / length(Test_Summary[[1]]$Matching_class)
   Test_Summary_Overall[["confusion_matrix"]] <- conf_matrix_list[[1]]$table
 
+  ### Output ###
+  
+  if(!is.null(prefix)){prefix <- paste0(prefix,"_")}
+  
+  # export as excel #
+  #Sys.setenv("R_ZIPCMD" = "C:/Rtools/bin/zip.exe")
+  openxlsx::write.xlsx(Test_Summary_Stats, file = paste0(out_path,"/",prefix,"Test_Summary_Stats.xlsx"), overwrite = TRUE)
+  openxlsx::write.xlsx(Test_Summary, file = paste0(out_path,"/",prefix,"Test_Summary.xlsx"), overwrite = TRUE)
+  saveRDS(conf_matrix_list, file = paste0(out_path,"/",prefix,"conf_matrix_list.RDS"))
+  saveRDS(conf_matrix_list, file = paste0(out_path,"/",prefix,"conf_matrix_overall.RDS"))
+  
   return(Test_Summary_Overall)
 }
 
