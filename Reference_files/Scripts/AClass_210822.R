@@ -2367,8 +2367,10 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
     print(mds.p)
   } else if (plot_type == "ggplot_label"){
     mds.p <- mds.p +geom_text_repel(aes(label = Sample), show.legend = FALSE)
+    print(mds.p)
   } else if (plot_type == "ggplot_label_test"){
     mds.p <- mds.p +geom_text_repel(data=mds.p$data[mds.p$data$Type == "Test",], aes(label = Sample), show.legend = FALSE)
+    print(mds.p)
   }
 
 } 
