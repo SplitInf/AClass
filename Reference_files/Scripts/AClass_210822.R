@@ -816,6 +816,12 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
                 train.mat$grid_index_col <- train.mat[,ncol_total - 3]
                 train.mat$grid_index_col2 <- train.mat[,ncol_total - 4]
                 train.mat.best <- train.mat[train.mat[,"grid_index_col"] == bestTuneModel[[1]] & train.mat[,"grid_index_col2"] == bestTuneModel[[2]],] 
+            } else if (length(bestTuneModel) == 3){
+              #alg = "nb"
+              train.mat$grid_index_col <- train.mat[,ncol_total - 3]  # order swapped for nb
+              train.mat$grid_index_col2 <- train.mat[,ncol_total - 4] # order swapped for nb
+              train.mat$grid_index_col3 <- train.mat[,ncol_total - 2]
+              train.mat.best <- train.mat[train.mat[,"grid_index_col"] == bestTuneModel[[1]] & train.mat[,"grid_index_col2"] == bestTuneModel[[2]] & train.mat[,"grid_index_col3"] == bestTuneModel[[3]],] 
             }
             train.mat.best <- train.mat.best[with(train.mat.best, order(rowIndex,grid_index_col,Resample)),]
             train.mat.best$Matching <- ifelse(train.mat.best$pred == train.mat.best$obs, 1,0)
@@ -832,8 +838,30 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
             }  else{
               training_model_mat_list.full <- merge(training_model_mat_list.full, train.mat.best.simple, by="Sample")
             }
-        } # if using incompatible alg
-        
+            
+        } else if(alg == "glmnet") {
+          # if using incompatible alg
+          if (length(bestTuneModel) == 2){
+            train.mat$grid_index_col <- train.mat[,ncol_total - 3]
+            train.mat$grid_index_col2 <- train.mat[,ncol_total - 2]
+            train.mat.best <- train.mat[train.mat[,"grid_index_col"] == bestTuneModel[[1]] & round(train.mat[,"grid_index_col2"],5) == round(bestTuneModel[[2]],5),] 
+          }
+          train.mat.best <- train.mat.best[with(train.mat.best, order(rowIndex,grid_index_col,Resample)),]
+          train.mat.best$Matching <- ifelse(train.mat.best$pred == train.mat.best$obs, 1,0)
+          
+          train.mat.best.simple <- aggregate(train.mat.best$Matching, by=list(train.mat.best$Sample), FUN=sum)
+          colnames(train.mat.best.simple) <- c("Sample",paste0(alg,"_",probe.idx,"_N_Match"))
+          
+          library(reshape2)
+          train.mat.best.cast <- reshape2::dcast(train.mat.best, Sample+pred+obs ~ Resample, value.var="Sample")
+          train.mat.best.cast <- merge(train.mat.best.simple, train.mat.best.cast, by="Sample")
+          
+          if (length(training_model_mat_list.full)==0){
+            training_model_mat_list.full <- train.mat.best.simple
+          }  else{
+            training_model_mat_list.full <- merge(training_model_mat_list.full, train.mat.best.simple, by="Sample")
+          }
+        }
         # confusion matrix #
         train_model.conmat <- confusionMatrix(train_model)
         #training_model_mat_list[[paste0(alg,"_",probe.idx,"_N_match")]] <- train.mat.best.simple
