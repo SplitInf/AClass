@@ -1091,7 +1091,7 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
 
    # format #
   gg_line.combined.overall <- gg_line.combined.overall  +
-  xlab(label = "Number of genes used for model")+
+  xlab(label = "Number of genes in model")+
     ylab(label = "Training accuracy")+
     labs(title = paste0("Training Accuracy Plot"))+
     scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.02)) +
