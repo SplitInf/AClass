@@ -1090,9 +1090,9 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
 
    # format #
   gg_line.combined.overall <- gg_line.combined.overall  +
-  xlab(label = "Num_Features")+
-    ylab(label = "Accuracy")+
-    labs(title = paste0("Accuracy Plot"))+
+  xlab(label = "Number of genes used for model")+
+    ylab(label = "Training accuracy")+
+    labs(title = paste0("Training Accuracy Plot"))+
     scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.02)) +
     #coord_cartesian(xlim = c(feature_min, feature_max),default = TRUE,expand = FALSE) +
     #coord_cartesian(ylim = c(min(internal_performance[internal_performance$Num_Features >= feature_min & internal_performance$Num_Features <= feature_max,]$Accuracy), 
