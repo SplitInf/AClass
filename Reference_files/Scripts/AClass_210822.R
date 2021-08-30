@@ -919,8 +919,9 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
 #' @param feature_box_range - controls plotting box over selected feature range in overall combined plot. Format: c(x1,x2,y1,y2). Default. NULL.
 #' @param annotate_alg - whether to annotate algorithms when in overall combined plot. Default NULL.
 #' @param adj_y_range - controls y-axis in overall combined plot. Format: c(y_min,y_max).
+#' @param add_legend - binary option to add legend to overall combined plot. Default FALSE.
 
-nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max, print_report=TRUE, out_path=NULL, feature_box_range=NULL, annotate_alg=FALSE, adj_y_range=NULL){
+nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max, print_report=TRUE, out_path=NULL, feature_box_range=NULL, annotate_alg=FALSE, adj_y_range=NULL, add_legend=FALSE){
   
   library(ggrepel)
   
@@ -1082,7 +1083,7 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
   # base plot #
   gg_line.combined.overall <- ggplot(data=internal_performance, aes(x=Num_Features, y=Accuracy, colour=Alg)) + 
     geom_point(show.legend = FALSE) +
-    geom_path(aes(colour = Alg),show.legend = FALSE) +
+    geom_path(aes(colour = Alg)) +
     #scale_color_brewer(palette="Set1") +
     # modified Set1
     scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3" ,"#FF7F00" ,"yellow2" ,"#A65628" ,"#F781BF", "#999999"))
@@ -1136,6 +1137,12 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
   if(!is.null(feature_box_range)){
     gg_line.combined.overall <- gg_line.combined.overall + geom_rect(aes(xmin = feature_box_range[1], xmax = feature_box_range[2], ymin = feature_box_range[3], ymax =feature_box_range[4]),
                                       fill = "transparent", color = "red", size = 0.5)
+  }
+  
+  if(add_legend==TRUE){
+    gg_line.combined.overall <- gg_line.combined.overall + theme(legend.position = "bottom")
+  } else if (add_legend==FALSE){
+    gg_line.combined.overall <- gg_line.combined.overall + theme(legend.position = "none")
   }
   ## prepare output ##
   overivew_internal_performance <- get.training.stats(train_list)
