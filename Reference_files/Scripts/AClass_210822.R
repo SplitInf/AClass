@@ -158,6 +158,11 @@ initialize.prj <- function() {
     library(cowplot)
   }
   
+  if(!require(viridis)){
+    install.packages("viridis")
+    library(viridis)
+  }
+
   if(!require(ResourceSelection)){
     # source("https://bioconductor.org/biocLite.R")
     # biocLite("ResourceSelection")
@@ -907,10 +912,17 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
 
 #' @param prefix - file prefix that goes to algorithms performance report
 #' @param training_model_obj - training model object where training performance is pulled out from
-#' @param feature_min - controls the number of min plotting range
-#' @param feature_max - controls the number of max plotting range
+#' @param feature_min - controls the number of min plotting range (x-axis)
+#' @param feature_max - controls the number of max plotting range (x-axis)
+#' @param print_report - binary option to print as pdf or not
 #' @param out_path output path. When not provided out_path will be extracted from run_info (default)
-nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max, out_path=NULL){
+#' @param feature_box_range - controls plotting box over selected feature range in overall combined plot. Format: c(x1,x2,y1,y2). Default. NULL.
+#' @param annotate_alg - whether to annotate algorithms when in overall combined plot. Default NULL.
+#' @param adj_y_range - controls y-axis in overall combined plot. Format: c(y_min,y_max).
+
+nano.train.report <- function(prefix, training_model_obj, feature_min, feature_max, print_report=TRUE, out_path=NULL, feature_box_range=NULL, annotate_alg=FALSE, adj_y_range=NULL){
+  
+  library(ggrepel)
   
   if(is.null(out_path)){
     out_path = paste(getwd(),training_model_obj$run_info$run_id[1], sep = "/")
@@ -979,7 +991,7 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
     } # j
   } # i
   
-  pdf(file = paste0(out_path,"/",prefix,"Accuracy_by_Alg.pdf"), width = 10.5, height = 8)
+
   ## plot ##
   g_conf_mat.facet <- ggplot(data =stats, aes(Num_Features.i, Num_Features.j,Avg_accuracy))+ 
     geom_tile(aes(fill = Avg_accuracy),colour = "white")   + 
@@ -989,7 +1001,7 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
     theme_minimal() +  coord_equal(ratio = 1) +
     #facet_grid(Alg~. )
     facet_wrap(~Alg, ncol=2)
-  print(g_conf_mat.facet)
+
   
   g_conf_mat <- ggplot(data =stats, aes(x=Num_Features.i, y=Num_Features.j,z=Avg_accuracy))+ 
     geom_tile(aes(fill = Avg_accuracy),colour = "white")   + 
@@ -1000,7 +1012,7 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
     scale_fill_gradientn(colours = c("cyan", "black", "red"))+
     theme_minimal() + coord_equal(ratio = 1) +  ggtitle("Overall Average") +
     theme(axis.text.x=element_text(angle = 90, hjust = 0))
-  print(g_conf_mat)
+
   
   # g_conf_mat + geom_density_2d(stats, aes(x = Num_Features.i, y = Num_Features.j, z = Avg_accuracy))
   # g_conf_mat + geom_density_2d()
@@ -1011,9 +1023,19 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
   internal_performance.select.num_features.agg <- aggregate(internal_performance.select[,"Accuracy",drop=FALSE], by=list(internal_performance.select$Num_Features), FUN=mean)
   colnames(internal_performance.select.num_features.agg) <- c("Num_Features","Avg_accuracy")
   
+  ## calculate alg performance avg accuracy ##
   internal_performance.select.alg.agg <- aggregate(internal_performance.select[,"Accuracy",drop=FALSE], by=list(internal_performance.select$Alg), FUN=mean)
   colnames(internal_performance.select.alg.agg) <- c("Alg","Avg_accuracy")
+  # add final alg performance info #
+  alg.final_performance <- data.frame()
+  for(i in unique(internal_performance.select$Alg)){
+    alg.final_performance.i <- internal_performance.select[internal_performance.select$Alg == i,]
+    alg.final_performance.i <- alg.final_performance.i[alg.final_performance.i$Num_Features == max(alg.final_performance.i$Num_Features),]
+    alg.final_performance <- rbind(alg.final_performance, alg.final_performance.i)
+  }
+  internal_performance.select.alg.agg <- merge(internal_performance.select.alg.agg,alg.final_performance , by="Alg")
   
+  ## plots ##
   gg_line.facet <- ggplot(data=internal_performance, aes(x=Num_Features, y=Accuracy, colour=Alg)) + 
     geom_point(show.legend = FALSE) + 
     facet_grid(Alg~.)+
@@ -1026,7 +1048,7 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
     #geom_hline(data = internal_performance, aes(yintercept = mean(Accuracy), colour = Alg), color="blue")
     geom_hline(data = internal_performance.select.alg.agg, aes(yintercept=Avg_accuracy, group=Alg), linetype = "dashed", show.legend = FALSE)+
     geom_text(data = internal_performance.select.alg.agg, aes(x=0,y=Avg_accuracy,colour="black", group=Alg, label=paste("avg_acc",round(Avg_accuracy,3))), nudge_x=mean(c(probe_max,probe_min)), nudge_y=0.05, cex=3,show.legend = FALSE)
-  print(gg_line.facet)
+  
   
   gg_line.combined <- ggplot(data=internal_performance, aes(x=Num_Features, y=Accuracy, colour=Alg)) + 
     geom_point(show.legend = FALSE) + 
@@ -1037,7 +1059,7 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
     theme_minimal()+ geom_path(aes(colour = Alg),show.legend = FALSE)  +  
     geom_hline(data = internal_performance.select.alg.agg, aes(yintercept=Avg_accuracy, group=Alg, colour=Alg), linetype = "dashed", show.legend = FALSE)+
     geom_text(data = internal_performance.select.alg.agg, aes(x=0,y=Avg_accuracy,colour="black", group=Alg, label=paste(Alg,"avg_acc",round(Avg_accuracy,3))), nudge_x=probe_min*2, cex=3,show.legend = FALSE)
-  print(gg_line.combined)
+  
   
   gg_line <- ggplot(data=internal_performance.select.num_features.agg, aes(x=Num_Features, y=Avg_accuracy)) + 
     geom_point(show.legend = FALSE) + 
@@ -1054,19 +1076,94 @@ nano.train.report <- function(prefix, training_model_obj, feature_min, feature_m
               nudge_x=mean(c(probe_max,probe_min)), nudge_y=0.05, cex=3,show.legend = FALSE)+  
     ggtitle("Overall Average") +
     theme(axis.text.x=element_text(angle = 90, hjust = 0))
-  print(gg_line)
-  dev.off()
   
+  ## overall plot ##
+  
+  # base plot #
+  gg_line.combined.overall <- ggplot(data=internal_performance, aes(x=Num_Features, y=Accuracy, colour=Alg)) + 
+    geom_point(show.legend = FALSE) +
+    geom_path(aes(colour = Alg),show.legend = FALSE) +
+    #scale_color_brewer(palette="Set1") +
+    # modified Set1
+    scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3" ,"#FF7F00" ,"yellow2" ,"#A65628" ,"#F781BF", "#999999"))
+    #scale_color_viridis(discrete=TRUE)
+
+   # format #
+  gg_line.combined.overall <- gg_line.combined.overall  +
+  xlab(label = "Num_Features")+
+    ylab(label = "Accuracy")+
+    labs(title = paste0("Accuracy Plot"))+
+    scale_y_continuous(breaks = seq(from = 0, to = 1 ,by = 0.02)) +
+    #coord_cartesian(xlim = c(feature_min, feature_max),default = TRUE,expand = FALSE) +
+    #coord_cartesian(ylim = c(min(internal_performance[internal_performance$Num_Features >= feature_min & internal_performance$Num_Features <= feature_max,]$Accuracy), 
+    #                         max(internal_performance[internal_performance$Num_Features >= feature_min & internal_performance$Num_Features <= feature_max,]$Accuracy)))+
+    #ylim(0,1)+
+    theme_minimal() +
+    theme(axis.ticks = element_line(size = 0.5))+
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) +
+    theme(text = element_text(size = 16)) 
+  
+  #add border
+  gg_line.combined.overall <- gg_line.combined.overall +  
+    theme(panel.background = element_rect(colour = "black", size=1))         
+  #add alg annotation
+  if(annotate_alg==TRUE){
+    # point.size controls gap between segment and data
+    gg_line.combined.overall <- gg_line.combined.overall + ggrepel::geom_text_repel(data = internal_performance.select.alg.agg, aes(x=Num_Features,y=Accuracy,colour=Alg,group=Alg, 
+                                                                                                                                    point.size = 7,
+                                                                                                                                    label=paste(Alg,"avg.",round(Avg_accuracy,3))), 
+                                                                                    nudge_x=probe_min*2, cex=3,show.legend = FALSE, segment.size  = 0.2, segment.color = "black",segment.linetype = 1, arrow = arrow(length = unit(0.005, "npc"), type = "closed"))
+    
+    # min expand by 1, max epand by 10
+    gg_line.combined.overall <- gg_line.combined.overall + scale_x_continuous(expand = expansion(mult = c(0, 0), 
+                                                                   add = c(1, 5)),
+                                                                   breaks = seq(from = feature_min, to = feature_max ,by = 2)) 
+    
+  } else if (annotate_alg==FALSE){
+    gg_line.combined.overall <- gg_line.combined.overall + scale_x_continuous(breaks = seq(from = feature_min, to = feature_max ,by = 2))
+    
+  }
+  
+  if (!is.null(adj_y_range)){
+    gg_line.combined.overall <- gg_line.combined.overall+ coord_cartesian(xlim = c(feature_min, feature_max), ylim = c(adj_y_range[1],adj_y_range[2]),default = TRUE, expand = TRUE)
+      #ylim(0,1)+
+  } else if (is.null(adj_y_range)){
+    gg_line.combined.overall <- gg_line.combined.overall+ coord_cartesian(xlim = c(feature_min, feature_max), default = TRUE, expand = TRUE)
+  }
+  # add box #
+  if(!is.null(feature_box_range)){
+    gg_line.combined.overall <- gg_line.combined.overall + geom_rect(aes(xmin = feature_box_range[1], xmax = feature_box_range[2], ymin = feature_box_range[3], ymax =feature_box_range[4]),
+                                      fill = "transparent", color = "red", size = 0.5)
+  }
+  ## prepare output ##
   overivew_internal_performance <- get.training.stats(train_list)
   overivew_internal_performance <- merge(overivew_internal_performance,internal_performance.select.alg.agg, by="Alg")
   
   print(overivew_internal_performance)
   
   ##### Output #####
-  print(paste0("[MSG] Check directory for detailed reports."))
-  write.table(internal_performance, file = paste0(out_path,"/",prefix,"Optimal_Training_Attributes.txt"), col.names = NA, sep = "\t")
-  write.table(full_internal_performance, file = paste0(out_path,"/",prefix,"Full_Training_Attributes.txt"), col.names = NA, sep = "\t")
-  write.table(overivew_internal_performance,file = paste0(out_path,"/",prefix,"Overview_Training_Attributes.txt"), col.names = NA, sep = "\t")
+  
+  if (print_report == TRUE){
+    
+    print(paste0("[MSG] Check directory for detailed reports."))
+    
+    write.table(internal_performance, file = paste0(out_path,"/",prefix,"Optimal_Training_Attributes.txt"), col.names = NA, sep = "\t")
+    write.table(full_internal_performance, file = paste0(out_path,"/",prefix,"Full_Training_Attributes.txt"), col.names = NA, sep = "\t")
+    write.table(overivew_internal_performance,file = paste0(out_path,"/",prefix,"Overview_Training_Attributes.txt"), col.names = NA, sep = "\t")
+    
+    pdf(file = paste0(out_path,"/",prefix,"Accuracy_by_Alg.pdf"), width = 10.5, height = 8)
+    print(g_conf_mat.facet)
+    print(g_conf_mat)
+    print(gg_line.facet)
+    print(gg_line.combined)
+    print(gg_line)
+    print(gg_line.combined.overall)
+    dev.off()
+  }
+  
+  return(gg_line.combined.overall)
 }
 
 
@@ -2077,16 +2174,17 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 # 'Class' reserved for prediction results
 # 'Subgroup' reserved for ground truth
 #' @param prefix
-#' @param use_class custom class output order (default is to use detected order)
-#' @param Prob_range vector of probability intervals to be used in analysis
+#' @param use_class custom class output order. Required field.
+#' @param Prob_range vector of probability intervals to be used in analysis. Default 0 to 1 by 0.01
 #' @param prob column name for probability present in *_test_summary.txt file. Default "Avg_Probability"
 #' @param anno_table to merge with (expects "nano_filename" column) *depreciated* to use training_memberships_path instead (nano_filename and Class)
 #' @param training_memberships_path no header, expects nano_filename in column 1 and and Class in column 2.
-#' @param GeoMean_thres
+#' @param GeoMean_thres Housekeeping gene geometric mean threshold to be considered in analysis. Default NULL for no filtering and is same as using 0.
 #' @param out_path output path. When not provided out_path will be extracted from run_info (default)
 #' @param in_path input location for *_test_summary.txt. Default to getwd().
+#' @param recursive_read  binary option whether to read recursively 
 
-nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Probability", anno_table=NULL, training_memberships_path=NULL, GeoMean_thres=0, out_path=NULL, in_path=getwd(), recursive_read=FALSE){
+nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probability", anno_table=NULL, training_memberships_path=NULL, GeoMean_thres=NULL, out_path=NULL, in_path=getwd(), recursive_read=FALSE){
   
   ### check ###
   if(is.null(out_path)){
@@ -2096,6 +2194,10 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
   
   if(!is.null(anno_table)){
     stop("[MSG] anno_table is no longer supported, use training_memberships_path instead")
+  }
+  
+  if(!is.null(use_class)){
+    stop("[MSG] use_class is required. Hint: test_obj$colour_code$Group")
   }
   
   if(is.null(training_memberships_path)){
@@ -2108,10 +2210,7 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
     colnames(anno) <- c("Sample","Ground_Truth")
   }
   
-  # if(is.null(use_class)){
-  #   
-  # }
-  
+
   summary_file.df <- summary_file.agg.df <- summary_file.full.df <- data.frame()
   Test_Summary_Overall <- Test_Summary_Stats <- Test_Summary <- conf_matrix_list <-list()
   WD <- prefix
@@ -2142,32 +2241,29 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
   }
   
   ## Annotate ##
-  #summary_file.df.anno.full <- merge(summary_file.df, anno, by.x="Sample",by.y="Sample")
+  
   summary_file.df.anno.full <- merge(summary_file.df, anno, by.x="Sample",by.y="Sample")
   #row.names(summary_file.df.anno.full) <- summary_file.df.anno.full[,1] # not necessary and commenting out allow duplicate row names
   
   # change factor order #
 
-  ##  summary_file.df.anno.full$Class <- factor(summary_file.df.anno.full$Class, levels = c("Group1","Group2A","Group2B"))
-  #summary_file.df.anno.full$Class <- factor(summary_file.df.anno.full$Class, levels = c("Group1","Group2","NA"))
   summary_file.df.anno.full$Class <- factor(summary_file.df.anno.full$Class, levels = use_class)
   
-  ## summary_file.df.anno.full$Ground_Truth <- factor(summary_file.df.anno.full$Ground_Truth, levels = c("Group1","Group2A","Group2B"))
-  #summary_file.df.anno.full$Ground_Truth <- factor(summary_file.df.anno.full$Ground_Truth, levels = c("Group1","Group2","NA"))
   summary_file.df.anno.full$Ground_Truth <- factor(summary_file.df.anno.full$Ground_Truth, levels = use_class)
   
   summary_file.df.anno.full$Matching_class <- ifelse(summary_file.df.anno.full$Ground_Truth == summary_file.df.anno.full$Class, 1, 0)
   
-  #summary_file.agg.df.anno <- merge(summary_file.agg.df, anno, by.x="Sample", by.y="Sample")
   summary_file.agg.df.anno <- merge(summary_file.agg.df, anno, by.x="Sample", by.y="Sample")  
-  #summary_file.full.df.anno <- merge(summary_file.full.df, anno, by.x="Sample", by.y="Sample")
   summary_file.full.df.anno <- merge(summary_file.full.df, anno, by.x="Sample", by.y="Sample")
+  
   ## Remove Failed Samples ##
   
   # skip for now
   summary_file.df.anno <- summary_file.df.anno.full
-  #summary_file.df.anno <- summary_file.df.anno.full[summary_file.df.anno.full$GeoMean >= GeoMean_thres,]
   
+  if(!is.null(GeoMean_thres)){
+    summary_file.df.anno <- summary_file.df.anno.full[summary_file.df.anno.full$GeoMean >= GeoMean_thres,]  
+  }
   
   # frozen / ffpe filter #
   #select_matrials <- c("Frozen","extracted_RNA")
@@ -2259,6 +2355,30 @@ nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Proba
   saveRDS(Test_Summary_Overall, file = paste0(out_path,"/",prefix,"conf_matrix_overall.RDS"))
   
   return(Test_Summary_Overall)
+}
+
+##### Batch nano.eval.test #####
+# batch processing nano.eval.test and create an overall summary for all runs within dir
+#' @param prefix  
+#' @param use_class custom class output order. Required field.
+#' @param Prob_range vector of probability intervals to be used in analysis. Default 0 to 1 by 0.01
+#' @param prob column name for probability present in *_test_summary.txt file. Default "Avg_Probability"
+#' @param training_memberships_path no header, expects nano_filename in column 1 and and Class in column 2.
+#' @param GeoMean_thres Housekeeping gene geometric mean threshold to be considered in analysis. Default NULL for no filtering and is same as using 0.
+#' @param run_dir_path  expects multiple test results folders stored within this path.
+
+batch.nano.eval.test <- function(prefix, use_class=NULL, Prob_range=seq(from=0,to=1,by=0.01), prob="Avg_Probability", training_memberships_path, GeoMean_thres=NULL, run_dir_path){
+
+  
+  for (path_i in list.dirs(run_dir_path,full.names = TRUE)){
+    if(path_i == run_dir_path){next}
+    out_path_i = in_path_i = path_i
+    nano.eval.test(prefix=prefix, use_class=use_class, Prob_range=Prob_range, prob = prob, anno_table=NULL, training_memberships_path=training_memberships_path, GeoMean_thres=GeoMean_thres, out_path=out_path_i, in_path=in_path_i)
+  }
+  
+  out_path=in_path=run_dir_path
+  nano.eval.test(prefix=prefix, use_class=use_class, Prob_range=Prob_range, prob = prob, anno_table=NULL, training_memberships_path=training_memberships_path, GeoMean_thres=GeoMean_thres, out_path=out_path, in_path =in_path, recursive_read = TRUE)
+  
 }
 
 
