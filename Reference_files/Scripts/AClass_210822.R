@@ -257,10 +257,13 @@ process.raw <- function(work_path=getwd(), raw_path=NULL, keep_file_path=NULL, o
 ##### Batch Process Raw #####
 # batch mode of process.raw() where the end obj comes from combining obj from each data dir
 # all parameters matches with process.raw() except:
-# raw_dir_path  expects multiple raw folders stored within this path.
-
-batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep_file_path=NULL, omit_file_path=NULL, prefix=NULL, SampleContent = "housekeeping.geo.mean", mode=c("batch","combined")){
+#' @param raw_dir_path  expects multiple raw directories stored within this path.
+#' @param mode controls how data are loaded. Options are c("batch","combined"). Batch mode reads each directory in raw_dir_path and normalize separately before combining together. Combined mode read all data within raw_dir_path recursively. Default "combined".
+batch.process.raw <- function(work_path=getwd(), raw_dir_path=raw_dir_path, keep_file_path=NULL, omit_file_path=NULL, prefix=NULL, SampleContent = "housekeeping.geo.mean", mode="combined"){
   
+  if(!(mode %in% c("batch","combined"))){
+    stop("[MSG] mode must be batch or combined")
+  }
   
   if(mode=="batch"){
     # get path to csv's
@@ -643,7 +646,7 @@ nano.prep <- function(data){
 #' @param training_memberships_path Normalized dataframe.
 #' @param N.train.per ## percentage of training samples use for training, the remaining would be used for validation e.g. 0.8
 #' @param have_test_label If ground truth labels are avaliable for test data
-#' @param seed interger to set seed when needing to wrap function in loop
+#' @param seed integer to set seed when needing to wrap function in loop
 #' @return train.idx
 #' @example
 #' train.idx<-  nano.trainsplit(train.data,training_memberships_path, 0.8, FALSE)
@@ -672,12 +675,14 @@ nano.trainsplit <- function(data,training_memberships_path,N.train.per, seed=NUL
     # input = samples and labels
     # output = index of selected samples
     
-    if(!is.null(seed)){
+    if(is.null(seed)){
+      set.seed(as.numeric(Sys.time()))
+    } else if(!is.null(seed)){
       # adding random seed doesn't solve loop bug issue #
       # rnd <- sample(1:.Machine$integer.max,1)
       rnd <- seed
       set.seed(rnd)
-      print(paste0("[MSG] random seed: ",rnd))
+      print(paste0("[MSG] custom seed: ",rnd))
     }
     
     duplicate_flag = TRUE
@@ -755,16 +760,11 @@ nano.train <- function(prefix, data , alg_list = c("rf","glmnet","pam", "nb", "k
     training_model_obj <- list()
     ###### Training Settings #####
 
-    # set seeed #
-    # set.seed(123)
-    # seeds <- vector(mode = "list", length = 101)
-    # for(i in 1:50) seeds[[i]] <- sample.int(1000, 100)
-    # seeds[[1]] <- sample.int(1000, 1)
     ctrl <- trainControl(method = train.settings$c.method,
                          repeats = train.settings$c.repeats,  # rep20 feature 30-2 CV10, takes about 40 minutes for rf
                          number = train.settings$c.number,  # x fold CV
                          classProbs = TRUE, # save class probability for things like ROC curve
-                         #seeds = seeds, # see above
+                         #seeds = seeds, # implement seed assignment system
                          savePredictions= TRUE)  # for CaretEnsemble
 
     ### reset dataframe ##
@@ -1847,7 +1847,7 @@ nano.cal_model <- function(prefix, cal_labels.df, method=c("glm","glmnet")) {
       cal_labels.df.i.mat$Constant <- rep(1,nrow(cal_labels.df.i.mat)) # glmnet requires multicolumn, add 1 Constant 
       cal_labels.df.i.class <- cal_labels.df.i$obs
       
-      set.seed(849)
+      #set.seed(849)
       ctrl.glmnet <- trainControl(method = "repeatedcv",
                                   repeats = 10,  # rep20 feature 30-2 CV10, takes about 40 minutes for rf
                                   number = 10,
@@ -2398,6 +2398,7 @@ batch.nano.eval.test <- function(prefix, use_class=NULL, Prob_range=seq(from=0,t
 #' @param prefix
 #' @param data_train - normalized data used for training
 #' @param data_test - normalized data used for testing
+#' @param colour_code
 #' @param memberships - dataframe of sample name (row.names) and subgroup. NULL (default)
 #' @param gene_list - select genes for plotting. NULL (default) for no filtering
 #' @param plot_type - different plot types
