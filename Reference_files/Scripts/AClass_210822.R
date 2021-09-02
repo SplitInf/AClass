@@ -2191,7 +2191,7 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 #' @param in_path input location for *_test_summary.txt. Default to getwd().
 #' @param recursive_read  binary option whether to read recursively 
 
-nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probability", anno_table=NULL, training_memberships_path=NULL, GeoMean_thres=NULL, out_path=NULL, in_path=getwd(), recursive_read=FALSE){
+nano.eval.test <- function(prefix, use_class=NULL, Prob_range, prob = "Avg_Probability", anno_table=NULL, training_memberships_path=NULL, GeoMean_thres=NULL, out_path=NULL, in_path=getwd(), recursive_read=FALSE){
   
   ### check ###
   if(is.null(out_path)){
@@ -2203,7 +2203,7 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
     stop("[MSG] anno_table is no longer supported, use training_memberships_path instead")
   }
   
-  if(!is.null(use_class)){
+  if(is.null(use_class)){
     stop("[MSG] use_class is required. Hint: test_obj$colour_code$Group")
   }
   
@@ -2249,6 +2249,7 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
   
   ## Annotate ##
   
+  # annotate all ensemble models
   summary_file.df.anno.full <- merge(summary_file.df, anno, by.x="Sample",by.y="Sample")
   #row.names(summary_file.df.anno.full) <- summary_file.df.anno.full[,1] # not necessary and commenting out allow duplicate row names
   
@@ -2284,35 +2285,83 @@ nano.eval.test <- function(prefix, use_class, Prob_range, prob = "Avg_Probabilit
   
   ##### Calcuate TP/TF #####
   
+  # Retrieving stats from confusion matrix generated from caret::confusionMatrix()
+  confusionMatrix_stats <- function(conf_mat){
+    cm <- conf_mat$table
+    all_grps <- colnames(cm)
+    
+    conf_mat.stats <- data.frame()
+    for (grp in all_grps){
+      N_test <- sum(cm[,grp])
+      TP <- cm[grp,grp]
+      FN <- N_test - TP
+      TN <- sum(cm[-grep(grp,colnames(cm)),-grep(grp,row.names(cm))])
+      FP <- sum(cm[grp,])-TP
+      conf_mat.stats.i <- data.frame(grp=grp,N_test,TP,FN,FP,TN)
+      
+      if(nrow(conf_mat.stats)==0){
+        conf_mat.stats <- conf_mat.stats.i
+      } else {
+        conf_mat.stats <- rbind(conf_mat.stats,conf_mat.stats.i)
+      }
+    }
+    return(conf_mat.stats)
+  }
+  
   Accuracy_Table <- Subgroup_Accuracy_Table <- data.frame()
   for (Prob in Prob_range){
     summary_file.df.anno.i <- summary_file.df.anno[summary_file.df.anno[,prob] >= Prob,]
+    summary_file.df.anno.filtered.i <- summary_file.df.anno[summary_file.df.anno[,prob] < Prob,]
     
     N_Pass_Prob <- nrow(summary_file.df.anno.i)
-    confmat.i <- confusionMatrix(summary_file.df.anno.i$Class, summary_file.df.anno.i$Ground_Truth, positive = NULL)
-    #conf_matrix_list[[eval(paste0(alg,"_",i))]] <- confmat.i
+    N_Filtered_Prob <- nrow(summary_file.df.anno.filtered.i)
+    
+    confmat.i <- caret::confusionMatrix(summary_file.df.anno.i$Class, summary_file.df.anno.i$Ground_Truth, positive = NULL)
+    confmat.filtered.i <- caret::confusionMatrix(summary_file.df.anno.filtered.i$Class, summary_file.df.anno.filtered.i$Ground_Truth, positive = NULL)
+
+    # stats <- confusionMatrix_stats(conf_mat = confmat.i)
+    # stats_filtered <- confusionMatrix_stats(conf_mat = confmat.filtered.i)
+    
+    #overall stats taking into account of threshold#
+    
+    # TP <- stats[,"TP"]
+    # FN <- stats[,"FN"] + stats_filtered[,c("TP","FN")]
+    # TN <- stats[,"TN"] + stats_filtered[,c("TN","FP")]
+    # FP <- stats[,"FP"]
+    
     conf_matrix_list[[as.character(Prob)]] <- confmat.i
     
     # overall level #
-    Accuracy_Table.i <- data.frame(Probability = Prob, N=N_Pass_Prob, t(data.frame(confmat.i$overall)))
+    Accuracy_Table.i <- data.frame(Probability = Prob, N=N_Pass_Prob, N_Thres_Filtered=N_Filtered_Prob, t(data.frame(confmat.i$overall)))
+    #Accuracy_Table.i <- data.frame(Probability = Prob, N=N_Pass_Prob, N_Thres_Filtered=N_Filtered_Prob, t(data.frame(confmat.i$overall)), TP=TP,TN=TN,FP=FP,FN=FN,FPR=FP/(FP+TN),TRP=TP/(TP+FN), Thres_Accuracy=(TP+TN)/(TP+TN+FP+FN), Thres_Specificity=TN/(TN+FP), Thres_Precision=TP/(TP+FP), Thres_Sensitivity=TP/(TP+FN), Youden_Index=(TN/(TN+FP))+(TP/(TP+FN))-1)
     Accuracy_Table <- rbind(Accuracy_Table,Accuracy_Table.i)
     
     # subgroup level #
     Subgroup_Accuracy_Table.i <- data.frame(Probability = Prob, Class = gsub("Class: ","",row.names(confmat.i$byClass)), confmat.i$byClass)
     GRP_Count <- data.frame()
     
+    # calculate TP FN TN FN using group vs all 
     for(GRP in sort(unique(Subgroup_Accuracy_Table.i$Class))){
       Summary_file.df.anno.i.GRP.True <- summary_file.df.anno.i[summary_file.df.anno.i$Ground_Truth == GRP,,drop=FALSE]
       N_Pass_Prob.GRP.True <- nrow(Summary_file.df.anno.i.GRP.True)
-      TP <- nrow(Summary_file.df.anno.i.GRP.True[Summary_file.df.anno.i.GRP.True$Class == GRP,])
-      FN <- nrow(Summary_file.df.anno.i.GRP.True[Summary_file.df.anno.i.GRP.True$Class != GRP,])
+      summary_file.df.anno.filtered.i.GRP.True <- summary_file.df.anno.filtered.i[summary_file.df.anno.filtered.i$Ground_Truth == GRP,,drop=FALSE]
+      N_Filtered_Prob.GRP.True <- nrow(summary_file.df.anno.filtered.i.GRP.True)
       
       Summary_file.df.anno.i.GRP.False <- summary_file.df.anno.i[summary_file.df.anno.i$Ground_Truth != GRP,,drop=FALSE]
       N_Pass_Prob.GRP.False <- nrow(Summary_file.df.anno.i.GRP.False)
-      TN <- nrow(Summary_file.df.anno.i.GRP.False[Summary_file.df.anno.i.GRP.False$Class != GRP,])
+      summary_file.df.anno.filtered.i.GRP.False <- summary_file.df.anno.filtered.i[summary_file.df.anno.filtered.i$Ground_Truth != GRP,,drop=FALSE]
+      N_Filtered_Prob.GRP.False <- nrow(summary_file.df.anno.filtered.i.GRP.False)
+      
+      
+      TP <- nrow(Summary_file.df.anno.i.GRP.True[Summary_file.df.anno.i.GRP.True$Class == GRP,])
+      #FN <- nrow(Summary_file.df.anno.i.GRP.True[Summary_file.df.anno.i.GRP.True$Class != GRP,]) + nrow(summary_file.df.anno.filtered.i.GRP.True[summary_file.df.anno.filtered.i.GRP.True$Class == GRP,]) + nrow(summary_file.df.anno.filtered.i.GRP.False[summary_file.df.anno.filtered.i.GRP.False$Class == GRP,])
+      FN <- nrow(Summary_file.df.anno.i.GRP.True[Summary_file.df.anno.i.GRP.True$Class != GRP,]) + nrow(summary_file.df.anno.filtered.i.GRP.True) # fixed
+      
+      #TN <- nrow(Summary_file.df.anno.i.GRP.False[Summary_file.df.anno.i.GRP.False$Class != GRP,]) + nrow(summary_file.df.anno.filtered.i.GRP.False[summary_file.df.anno.filtered.i.GRP.False$Class != GRP,]) + nrow(summary_file.df.anno.filtered.i.GRP.True[summary_file.df.anno.filtered.i.GRP.True$Class != GRP,]) 
+      TN <- nrow(Summary_file.df.anno.i.GRP.False[Summary_file.df.anno.i.GRP.False$Class != GRP,]) + nrow(summary_file.df.anno.filtered.i.GRP.False)  #fixed
       FP <- nrow(Summary_file.df.anno.i.GRP.False[Summary_file.df.anno.i.GRP.False$Class == GRP,])
       
-      GRP_Count.i <- data.frame(Class=GRP,N_Class=N_Pass_Prob.GRP.True, TP=TP,TN=TN,FP=FP,FN=FN,FPR=FP/(FP+TN),TRP=TP/(TP+FN))
+      GRP_Count.i <- data.frame(Class=GRP,N_Class=N_Pass_Prob.GRP.True, N_Other_Class=N_Pass_Prob.GRP.False, N_Thres_Filtered =nrow(summary_file.df.anno.filtered.i), TP=TP,TN=TN,FP=FP,FN=FN,FPR=FP/(FP+TN),TRP=TP/(TP+FN), Thres_Accuracy=(TP+TN)/(TP+TN+FP+FN), Thres_Specificity=TN/(TN+FP), Thres_Precision=TP/(TP+FP), Thres_Sensitivity=TP/(TP+FN), Youden_Index=(TN/(TN+FP))+(TP/(TP+FN))-1)
       GRP_Count <- rbind(GRP_Count, GRP_Count.i)
     }
     
