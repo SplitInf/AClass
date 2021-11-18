@@ -2082,7 +2082,7 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
       dot_size <- 4
       
       mds.p <- ggplot(mds.anno, aes(x=X, y=Y, label=Sample, color=Group)) + 
-        geom_point(size=dot_size, colour="black") +
+        geom_point(size=dot_size) +
         scale_color_manual(values = as.character(col_code$Group_Colour)) +
         #scale_color_manual(values = as.character(groupcol)) + # not correct
         xlab(label = "MDS1")+
