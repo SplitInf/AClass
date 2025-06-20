@@ -1,8 +1,26 @@
 
 # AClass
 
-<!-- badges: start -->
-<!-- badges: end -->
+`AClass` is an R package designed to perform tumor subgroup classification using transcriptomic data, particularly from small cohorts. The method was originally developed for the classification of Atypical Teratoid Rhabdoid Tumors (ATRT) using probe-based NanoString nCounter data, but the core framework is compatible with other gene expression platforms.
+
+The motivation behind AClass is to enable robust subgroup classification in clinical settings when working with limited sample size, degraded/archival RNA, or cost- and time-sensitive workflows. To address this, AClass implements an ensemble classification strategy over a minimal biomarker panel.
+
+
+#### Method Summary
+The AClass workflow consists of the following components:
+•   Subgroup signature gene list: A minimal gene signature list, optimized for classification performance. The default panel, CodeSet30, was derived from subgroup-specific overexpressed genes in ATRT and is included in the package.
+•   Model selection: Multiple machine learning algorithms (e.g., rf, pam, glmnet, nb, knn) are evaluated across a range of gene subset sizes (e.g., 20–30 genes). As described in the publication, the top 5 algorithms over 20-30 genes were used to create a total of 55 classification models. Pre-trained models are included with the package.
+•   Ensemble prediction: Classification is performed using a hard-voting strategy across all selected models. The final class assignment is based on majority vote, and a prediction score is computed by averaging probabilities across models that agree on the predicted class.
+
+#### Input Requirements
+•   Expression data matrix (NanoString or other transcriptomic platform)
+•   Training labels (required only for retraining)
+•   Pre-ranked probe list (required only for retraining)
+
+#### Output
+•   Predicted class labels and prediction scores
+•   Classification report summarizing model agreement and QC
+•   Visualization tools including multidimensional scaling (MDS) plots
 
 
 ## Installation
@@ -20,7 +38,7 @@ Open R in the directory you cloned the package in and run `install.packages('ACl
 
 ## Tutorial
 
-For a tutorial on AClass, please read the [vignettes](http://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial.html).
+For detailed usage instructions, see the AClass [tutorial](http://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial.html).
 
 
 
