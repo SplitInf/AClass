@@ -1,0 +1,123 @@
+---
+title: "tutorial"
+author: "Ben Ho, Annie Huang"
+date: "2024-06-19"
+output: 
+  rmarkdown:::html_vignette:
+    toc: true
+vignette: >
+  %\VignetteIndexEntry{tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+
+### Publication
+If you have used AClass or CodeSet30 for your work, please cite [publication](https://doi.org/10.1093/noajnl/vdae004).
+Ben Ho , Anthony Arnoldo , Yvonne Zhong , Mei Lu , Jonathon Torchia , Fupan Yao , Cynthia Hawkins , Annie Huang. **Rapid, economical diagnostic classification of ATRT molecular subgroup using NanoString nCounter platform**. Neuro-Oncology Advances (2024), https://doi.org/10.1093/noajnl/vdae004 .
+
+```{r fig2a, echo=FALSE, fig.cap="Schema outlining out construction process of ATRT subgrouping ensemble classifier using NanoString data analysis.", out.width = '75%'}
+knitr::include_graphics("figures/Fig2a.png")
+```
+
+```{r fig2b, echo=FALSE, fig.cap="Representative prediction score plot for eight algorithms: (x-axis) number of genes used in a model and (y-axis) training accuracies where 1 = perfect accuracy. To prevent over-fitting, the top 5 best performing classification models from 8 algorithms (red box) were incorporated into an ensemble classifier.", out.width = '75%'}
+knitr::include_graphics("figures/Fig2b.png")
+```
+
+
+```{r input, eval = FALSE}
+
+library(AClass)
+work_path <- "/Your/Work/Path"
+
+#nanostring data# (if you have your own transcriptomic data, you can start from step 3.1)
+test_raw_path <- "/Your/Work/Path/test"
+train_raw_path <- "/Your/Work/Path/training"
+ref_path <- "/Your/Work/Path/AClass/Reference_files"
+
+# labels used for training *optional* only required when needing to retrain models. tsv file with column one with sample name and column two with group assignment
+training_memberships_path <- "/Your/Work/Path/AClass/Reference_files/Torchia_2016_GEP_k3_train_labels.txt"
+probes_rank_path <- "/Your/Work/Path/AClass/Reference_files/probes_list_hgnc.txt"
+# name of project #
+project_name <- "demo"
+
+###### Code ######
+# {1} Loading all required libraries
+initialize.prj() # install and load all required libraries
+
+# Training. If you have trained models already you can skip all step 2
+# {2} load training data
+# By default, samples_omit.txt or samples_keep.txt can be supplied to control which samples to exclude or include respectively.
+#train <- process.raw(work_path, prefix = project_name, raw_path = raw_path, keep_file_path = keep_file_path)
+train <- process.raw(work_path, prefix = project_name, raw_path = train_raw_path,recursive_read = TRUE)
+
+# {3.1} nano.trainsplit()
+# splits up data into training and the remaining for testing
+# N.train.per is the percentage for training 1=100% training, 0.6=60% training ..etc
+train <- nano.trainsplit(data = train, training_memberships_path, N.train.per=1)
+
+# {3.2} nano.train() & nano.train.report()
+# alg_list controls which algrithm to use. By default uses alg_list = c("rf","glmnet","pam", "nb", "knn").
+# default training settings: 
+# min_test_features=20, 
+# max_test_features=30, 
+# alg_list = c("rf","glmnet","pam", "nb", "knn"),  
+# c.method = "repeatedcv", c.repeats = 5, c.number = 10
+
+#models <- nano.train(prefix=project_name, data = train, work_path=work_path, alg_list = c("rf","pam"), min_test_features=28, max_test_features=30, c.repeats = 2, probes_rank_path = probes_rank_path)
+
+# {4} load trained models for testing. 
+# If there is no need for training the process begins here load trained model RDS *_Training_Models_List.RDS
+data(models)
+data(test_obj)
+# {5} load testing data
+# sample loading process for training and testing is the same (refer to {1})
+# SampleContent default to "housekeeping.geo.mean" when not included. Options are none, housekeeping.sum, housekeeping.geo.mean, total.sum, low.cv.geo.mean, top.mean and top.geo.mean
+#test_obj <- process.raw(work_path = work_path, raw_path = test_raw_path, prefix = project_name)
+
+# {6} classify.data()
+# use pre-trained models for classification and generates report output
+# geomean value of housekeeping gene threshold of 100 is used by default
+test_obj <- classify.data(work_path = work_path, data = test_obj, prefix = project_name, training_model_obj = models)
+
+
+
+# Other tools # 
+#1) Visualization with MDS plot
+
+# static plot # (minimum 3 samples)
+nano.MDS(prefix = project_name, data = test_obj, plot_type = "ggplot",data_name = "norm.t")
+
+# interactive plot # (minimum 3 samples)
+nano.MDS(prefix = project_name, data = test_obj, plot_type = "plotly",data_name = "norm.t")
+
+#2) Visualize data in reference to training data
+# can use training data from step2 or using the training models
+nano.MDS.train.test(prefix= project_name, train.data = train, test.data=test_obj , colour_code=test_obj$colour_code, plot_type = "plotly")
+nano.MDS.train.test(prefix= project_name, train.data = models, test.data=test_obj , colour_code=test_obj$colour_code, plot_type = "plotly")
+
+#3) Get training information from model ##
+get.training.stats(training_model_obj = models) # obtain model information
+
+#4) Generate training report.
+# command to pull out information about the models.
+nano.train.report(prefix=project_name, training_model_obj=models, feature_min=28, feature_max=30)
+
+```
+
+```{r fig3d, echo=FALSE, fig.cap="MDS analysis of 11 MRT (solid circle) against ATRT training set (open circle). Training labels and testing results are color coded based on subgroups (red = SHH, blue = TYR, green = MYC). The dotted ellipses represent the 95% confidence interval for training samples in each subgroup.", out.width = "auto"}
+knitr::include_graphics("figures/Fig3d.png")
+```
+
+
+```{r figs3b, echo=FALSE, fig.cap="A sample analysis report with visuals indicating agreement between models and predictions score for each subgroup.", out.width = "auto"}
+knitr::include_graphics("figures/FigS3b.png")
+```
