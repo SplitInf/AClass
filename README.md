@@ -8,7 +8,7 @@ The motivation behind AClass is to enable robust subgroup classification in clin
 
 #### Method Summary
 The AClass workflow consists of the following components:
-•   Subgroup signature gene list: A minimal gene signature list, optimized for classification performance. The default panel, [CodeSet30.txt](https://github.com/SplitInf/AClass/blob/main/inst/extdata/probes_list_hgnc.txt)
+•   Subgroup signature gene list: A minimal gene signature list, optimized for classification performance. The default panel, [CodeSet30](https://github.com/SplitInf/AClass/blob/main/inst/extdata/probes_list_hgnc.txt)
 , was derived from subgroup-specific overexpressed genes in ATRT and is included in the package.
 •   Model selection: Multiple machine learning algorithms (e.g., rf, pam, glmnet, nb, knn) are evaluated across a range of gene subset sizes (e.g., 20–30 genes). As described in the publication, the top 5 algorithms over 20-30 genes were used to create a total of 55 classification models. Pre-trained models are included with the package.
 •   Ensemble prediction: Classification is performed using a hard-voting strategy across all selected models. The final class assignment is based on majority vote, and a prediction score is computed by averaging probabilities across models that agree on the predicted class.
