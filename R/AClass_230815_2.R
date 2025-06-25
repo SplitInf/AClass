@@ -1,11 +1,14 @@
-#' update 230815  - Added feature to take non-NanoString data for direct training and testing. Including feature to skip geom_mean threshold by setting thres_geomean = NULL.
-#'               - Various bug fixes including making sure report follows same group order as detected col_code
-#' # To Do ##
-#' FIX - set name of object instead of TYPE
-#' ADD - subgroup specific threshold
+##### AClass #####
+# Update 230815
+# - Added feature to take non-NanoString data for direct training/testing
+# - Bug fixes for group ordering in report
 
-#' Initialize AClass Project Environment
-#'
+# TODO:
+# - Fix TYPE vs object naming
+# - Add subgroup-specific thresholds
+# - Save probes_rank paths automatically
+
+#####initialize.prj#####
 #' Installs and loads required packages for AClass project. This includes both CRAN and Bioconductor packages,
 #' and ensures all dependencies are available. Note: archived version of NanoStringNorm is utilized
 #'
