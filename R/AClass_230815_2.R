@@ -1,12 +1,8 @@
-##### AClass #####
-
-#update 230815  - Added feature to take non-NanoString data for direct training and testing. Including feature to skip geom_mean threshold by setting thres_geomean = NULL.
-#               - Various bug fixes including making sure report follows same group order as detected col_code
-## To Do ##
-# Fix issue with TYPE. Use name of object instead?
-# hardcode Probes rank path and probes_rank (save all in "Training_Results")
-# add nano.set.train.settings similar to nano.set.colour so that nano.train can be broken down to smaller
-# set subgroup specific threshold?
+#' update 230815  - Added feature to take non-NanoString data for direct training and testing. Including feature to skip geom_mean threshold by setting thres_geomean = NULL.
+#'               - Various bug fixes including making sure report follows same group order as detected col_code
+#' # To Do ##
+#' FIX - set name of object instead of TYPE
+#' ADD - subgroup specific threshold
 
 #' Initialize AClass Project Environment
 #'
