@@ -354,9 +354,12 @@ classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_
   if(remap_to_atrt_consensus){
     test.obj <- remap.subgroups(data = test.obj, map = "Torchia2016_to_Ho2019")
   }
-
-  # Step 8: Set Colour Code based on pre-trained models and remap_to_atrt_consensus flag
-  group <- unique(training_model_obj$train.data.main$Group)
+  # Step 8: Set Colour Code based on pre-trained models or remapped test_results
+  if(remap_to_atrt_consensus){
+    group <- unique(test.obj$test_results$Class)
+  } else {
+    group <- unique(training_model_obj$train.data.main$Group)
+  }
   test.obj <- nano.set.colour(test.obj, group)
 
   # Step 9: Generate report
