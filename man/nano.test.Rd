@@ -19,7 +19,7 @@ nano.test(
 
 \item{training_model_obj}{Object returned from \code{nano.train()}, must include \verb{$training_model_list}.}
 
-\item{data}{AClass object containing test data in \code{norm.t}}
+\item{data}{AClass object containing test data in \code{norm.t}. If known class labels (\code{Group}) are present, a confusion matrix is computed to evaluate performance.}
 
 \item{alg_list}{Optional. Subset of algorithms to test. If not provided, all algorithms in the training object are used.}
 

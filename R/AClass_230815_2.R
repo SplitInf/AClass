@@ -298,7 +298,7 @@ batch.process.raw <- function(work_path=getwd(), raw_dir_path, keep_file_path=NU
 #' @examples
 #' data.obj <- classify.data(data = data.obj,prefix = "demo",training_model_obj = training_models)
 #' @export
-classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_list = c("rf","glmnet","pam", "nb", "knn"), keep_file_path = NULL, omit_file_path = NULL, out_path=NULL, thres_geomean=100, report_type="Summary", remap_to_atrt_consensus=FALSE){
+classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_list = c("rf","glmnet","pam", "nb", "knn"), keep_file_path = NULL, omit_file_path = NULL, out_path=NULL, thres_geomean=100, report_type="Summary", remap_to_atrt_consensus=TRUE){
 
   if(is.null(prefix)) {stop("[MSG] prefix is required but missing.")}
   if(is.null(work_path)){stop("[MSG] work_path missing")}
@@ -345,6 +345,11 @@ classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_
   # choose algorithms
   test.obj <- nano.test(prefix = prefix, training_model_obj = training_model_obj, data = test.obj, alg_list = alg_list, out_path = out_path) # output text file to out_path
 
+  # Optionally remap Torchia 2016 subgroup labels to Ho et al. 2019 consensus naming
+  if(remap_to_atrt_consensus){
+    test.obj <- remap.subgroups(data = test.obj, slot = "test_results_full", column = "Class", map = "Torchia2016_to_Ho2019")
+  }
+
   # Step 7: Consolidate results
   # choose min max range based on model accuracy
   test.obj <- get.nano.test.results(prefix,test.obj, out_path = out_path)
@@ -352,7 +357,7 @@ classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_
 
   # Step 8: Set Colour Code based on pre-trained models and remap_to_atrt_consensus flag
   group <- unique(training_model_obj$train.data.main$Group)
-  test.obj <- nano.set.colour(test.obj, group, remap_to_atrt_consensus=remap_to_atrt_consensus)
+  test.obj <- nano.set.colour(test.obj, group)
 
   # Step 9: Generate report
   test.obj <- nano.plot(prefix = prefix, data = test.obj, prob= "Avg_Probability", report_type=report_type, print_report = TRUE, thres_avg_prob=0, thres_geomean = thres_geomean, out_path=out_path)
@@ -1222,7 +1227,7 @@ nano.norm <- function(data, SampleContent = "housekeeping.geo.mean", round.value
 #'
 #' @param training_model_obj Object returned from `nano.train()`, must include `$training_model_list`.
 #' @param alg_list Optional. Subset of algorithms to test. If not provided, all algorithms in the training object are used.
-#' @param data AClass object containing test data in `norm.t`
+#' @param data AClass object containing test data in `norm.t`. If known class labels (`Group`) are present, a confusion matrix is computed to evaluate performance.
 #' @param min_test_features Minimum number of features to test. If not specified, inferred from training model.
 #' @param max_test_features Maximum number of features to test. If not specified, inferred from training model.
 #' @param prefix Output file prefix (e.g., `paste(project, format(Sys.time(), "%Y-%m-%d_%H%M"), sep = "_")`).
@@ -1293,7 +1298,7 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
 
       if (("Group" %in% colnames(test.df))){
         # If Group information is present (ie testing known samples) #
-        ## message(paste0("[MSG] Have labels. Contruct Confusion Matrix."))
+        ## message(paste0("[MSG] Have labels. Construct Confusion Matrix."))
 
         #omit#
         #if (alg == "svmLinear"){
@@ -1356,7 +1361,7 @@ nano.test <- function(prefix, training_model_obj, data , alg_list=NULL, min_test
 
   data$run_info$test_settings <- c("models" = names(training_model_list), "alg_list" = alg_list,"min_test_features" = min_test_features, "max_test_features" = max_test_features)
 
-  # if you have conf_matrix # (need if statement)
+  # if Group column is present, you have conf_matrix #
   if (("Group" %in% colnames(test.df))){
     write.table(conf_matrix_results.full, file=file.path(out_path,paste0(prefix,"_conf_matrix_results_full_Test.txt")), sep = "\t", col.names = NA)
     saveRDS(conf_matrix_list, file=file.path(out_path,paste0(prefix,"_Alg_Conf_Matrix_Test.RDS"))) # more details
@@ -2180,7 +2185,6 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
 #' @param data AClass object with a training data slot.
 #' @param Group_names Optional character vector of group names. If `NULL`, will use labels in the data.
 #' @param data_name Character. Name of the data slot to pull group labels from. Options: "train.data.main" or "train.data.validate".
-#' @param remap_to_atrt_consensus Logical. If TRUE, will remap Torchia et al. 2016 subgroup names to ATRT consensus names from Ho et al. 2019.
 #' @return Modified AClass object with a new `colour_code` data frame for plotting.
 #' @examples
 #' # Case 1: Auto-detect groups from train.data.main
@@ -2196,7 +2200,7 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
 #' data <- nano.set.colour(data, Group_names = c("A", "B", "C"))  # default numeric colors applied
 #'
 #' @export
-nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.main","train.data.validate"), remap_to_atrt_consensus = FALSE){
+nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.main","train.data.validate")){
 
   #check and assign default
   data_name <- match.arg(data_name)
@@ -2216,20 +2220,6 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 
   } else {
     Group_labels <- Group_names
-  }
-
-  # Remap Torchia 2016 to Ho 2019, only if valid
-  group_remap <- c("Group1" = "SHH", "Group2A" = "TYR", "Group2B" = "MYC")
-  if (remap_to_atrt_consensus) {
-    if (setequal(sort(Group_labels), sort(names(group_remap)))) {
-      message("[MSG] Remapping Torchia 2016 subgroups to Ho et al. 2019 labels.")
-      if (!is.null(data[[data_name]]$Group)) {
-        data[[data_name]]$Group <- as.character(group_remap[as.character(data[[data_name]]$Group)])
-      }
-      Group_labels <- as.character(group_remap[Group_labels])
-    } else {
-      warning("[MSG] Remapping skipped. Group labels do not match expected Torchia et al., 2016 format.")
-    }
   }
 
   #detect color schemes from subgroups#
@@ -2939,5 +2929,48 @@ check_and_prepare_test_data <- function(test_data, model, rename_map = NULL) {
 
   return(test_data)
 }
+
+#####remap.subgroups#####
+#' @title Remap subgroup labels in a slot of AClass object
+#' @description
+#' Internal helper function to remap subgroup labels from Torchia et al. 2016 to Ho et al. 2019 consensus names.
+#' Intended to be called after `nano.test()`, when `test_results_full` is present.
+#'
+#' @param data AClass object that has been analyzed with `nano.test()`.
+#' @param slot Character. Slot name within AClass object to be modified. Default is "test_results_full".
+#' @param column Character. Column within the slot to apply remapping. Default is "Class".
+#' @param map Character. Mapping scheme to use. Currently supports only "Torchia2016_to_Ho2019".
+#' @return Modified AClass object with updated group labels.
+#' @keywords internal
+remap.subgroups <- function(data, slot = "test_results_full", column = "Class", map = "Torchia2016_to_Ho2019") {
+  if (map == "Torchia2016_to_Ho2019") {
+    remap <- c("Group1" = "SHH", "Group2A" = "TYR", "Group2B" = "MYC")
+  } else {
+    stop("[MSG] Unsupported mapping scheme: ", map)
+  }
+
+  if (!slot %in% names(data)) {
+    warning("[MSG] Slot '", slot, "' not found in AClass object.")
+    return(data)
+  }
+
+  slot_data <- data[[slot]]
+
+  if (!is.data.frame(slot_data)) {
+    warning("[MSG] Slot '", slot, "' is not a data.frame. Skipping remapping.")
+    return(data)
+  }
+
+  if (!column %in% colnames(slot_data)) {
+    warning("[MSG] Column '", column, "' not found in slot '", slot, "'. No remapping applied.")
+    return(data)
+  }
+
+  slot_data[[column]] <- as.character(remap[as.character(slot_data[[column]])])
+  data[[slot]] <- slot_data
+
+  return(data)
+}
+
 
 

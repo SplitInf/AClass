@@ -15,7 +15,7 @@ classify.data(
   out_path = NULL,
   thres_geomean = 100,
   report_type = "Summary",
-  remap_to_atrt_consensus = FALSE
+  remap_to_atrt_consensus = TRUE
 )
 }
 \arguments{

@@ -7,8 +7,7 @@
 nano.set.colour(
   data,
   Group_names = NULL,
-  data_name = c("train.data.main", "train.data.validate"),
-  remap_to_atrt_consensus = FALSE
+  data_name = c("train.data.main", "train.data.validate")
 )
 }
 \arguments{
@@ -17,8 +16,6 @@ nano.set.colour(
 \item{Group_names}{Optional character vector of group names. If \code{NULL}, will use labels in the data.}
 
 \item{data_name}{Character. Name of the data slot to pull group labels from. Options: "train.data.main" or "train.data.validate".}
-
-\item{remap_to_atrt_consensus}{Logical. If TRUE, will remap Torchia et al. 2016 subgroup names to ATRT consensus names from Ho et al. 2019.}
 }
 \value{
 Modified AClass object with a new \code{colour_code} data frame for plotting.
