@@ -4,10 +4,10 @@
 \alias{nano.feat.select}
 \title{Feature selection using Boruta}
 \usage{
-nano.feat.select(nanostring_data)
+nano.feat.select(data)
 }
 \arguments{
-\item{nanostring_data}{An AClass object with a \code{train.data.main} slot. Must include a \code{Group} column for supervised classification.}
+\item{data}{An AClass object with a \code{train.data.main} slot. Must include a \code{Group} column for supervised classification.}
 }
 \value{
 A list with selected important genes, the Boruta object after tentative fix, and selection statistics.
