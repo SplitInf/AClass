@@ -2776,7 +2776,7 @@ nano.extract <- function(data, keep_samples_path = NULL) {
 #' @title Convert validation set to test input format
 #' @description
 #' Converts the validation portion of an AClass training object into a format compatible with test-mode functions.
-#' It removes the `Group` column from `train.data.validate`, and carries over `prenorm_qc` and `run_info`.
+#' It removes the `Group` column from `train.data.validate` if present, and carries over `prenorm_qc` and `run_info`.
 #'
 #' @param data An AClass object containing `train.data.validate`, `prenorm_qc`, and `run_info` slots.
 #' @return A list with `norm.t`, `prenorm_qc`, and `run_info` slots, suitable for use with testing functions.
@@ -2786,12 +2786,16 @@ convert2test <- function(data){
   if (!"train.data.validate" %in% names(data)) {
     stop("[MSG] train.data.validate not found in input data.")
   }
-  if (!"Group" %in% colnames(data$train.data.validate)) {
-    stop("[MSG] Group column not found in train.data.validate.")
-  }
 
+  df <- data$train.data.validate
   test <- list()
-  test$norm.t <- subset(data$train.data.validate, select =-Group)
+  # Handle labeled and unlabeled data
+  if ("Group" %in% colnames(df)) {
+    test$norm.t <- subset(df, select =-Group)
+  } else {
+    warning("[MSG] Group column not found in train.data.validate. Proceeding with unlabeled test data.")
+    test$norm.t <- df
+  }
   test$prenorm_qc <- data$prenorm_qc
   test$run_info <- data$run_info
   return(test)
@@ -2802,16 +2806,24 @@ convert2test <- function(data){
 #' @description
 #' Converts a data frame into an AClass-style list object with support for
 #' training/validation splits and group color annotations. This function is useful for importing custom transcriptomic data into the AClass workflow. By default, the input data frame is assigned to `train.data.main`.
-#' @param df A data frame with a `Group` column and genes/features as columns and samples as rows.
+#' @param df A data frame with genes/features as columns and samples as rows. If `Group` column is present it will be passed on to `norm.t`, which is required for `nano.trainsplit()`
 #' @param colour_code Colour code data frame. Must contain `Group` and `Group_Colour` columns.
-#' @param add_to Either a character ("train.data.main" or "train.data.validate") or a data frame with two columns specifying which samples go to the training or validation set. Default is `train.data.main`
-#'
+#' @param add_to Either a character ("train.data.main" or "train.data.validate") or a data frame with two columns.
+#' In the data frame version, the first column should contain sample names (matching rownames in `df`), and the second column should contain split labels: "train" or "validate".
+#' Samples labeled "train" will be assigned to `$train.data.main`, and those labeled "validate" to `$train.data.validate`. Default is "train.data.main".
 #' @return A list representing a formatted transcriptomic object compatible with AClass tools.
 #' @export
 df2nano <- function(df, colour_code=NULL, add_to=c("train.data.main","train.data.validate")){
 
-  if (is.character(add_to)) {
-    add_to <- match.arg(add_to)
+  # check
+  if(!(is.data.frame(add_to)) & !(is.vector(add_to) & length(add_to) ==1 )){
+    stop("[MSG] add_to must be either train.data.main or train.data.validate, or data frame with 2 columns e.g. sample_name1 test/validate")
+  }
+
+  if( is.vector(add_to) & length(add_to) ==1 ){
+    if(add_to != "train.data.main" & add_to !="train.data.validate"){
+      stop("[MSG] add_to must be either train.data.main or train.data.validate, or data frame with 2 columns e.g. sample_name1 test/validate")
+    }
   }
 
   # check if there is Group column
