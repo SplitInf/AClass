@@ -11,11 +11,13 @@ df2nano(
 )
 }
 \arguments{
-\item{df}{A data frame with a \code{Group} column and genes/features as columns and samples as rows.}
+\item{df}{A data frame with genes/features as columns and samples as rows. If \code{Group} column is present it will be passed on to \code{norm.t}, which is required for \code{nano.trainsplit()}}
 
 \item{colour_code}{Colour code data frame. Must contain \code{Group} and \code{Group_Colour} columns.}
 
-\item{add_to}{Either a character ("train.data.main" or "train.data.validate") or a data frame with two columns specifying which samples go to the training or validation set. Default is \code{train.data.main}}
+\item{add_to}{Either a character ("train.data.main" or "train.data.validate") or a data frame with two columns.
+In the data frame version, the first column should contain sample names (matching rownames in \code{df}), and the second column should contain split labels: "train" or "validate".
+Samples labeled "train" will be assigned to \verb{$train.data.main}, and those labeled "validate" to \verb{$train.data.validate}. Default is "train.data.main".}
 }
 \value{
 A list representing a formatted transcriptomic object compatible with AClass tools.

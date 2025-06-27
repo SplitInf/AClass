@@ -14,5 +14,5 @@ A list with \code{norm.t}, \code{prenorm_qc}, and \code{run_info} slots, suitabl
 }
 \description{
 Converts the validation portion of an AClass training object into a format compatible with test-mode functions.
-It removes the \code{Group} column from \code{train.data.validate}, and carries over \code{prenorm_qc} and \code{run_info}.
+It removes the \code{Group} column from \code{train.data.validate} if present, and carries over \code{prenorm_qc} and \code{run_info}.
 }

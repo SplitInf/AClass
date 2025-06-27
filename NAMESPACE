@@ -2,6 +2,7 @@
 
 export(batch.nano.eval.test)
 export(batch.process.raw)
+export(check_and_prepare_test_data)
 export(classify.data)
 export(convert2test)
 export(df2nano)
