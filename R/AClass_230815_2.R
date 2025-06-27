@@ -308,15 +308,17 @@ classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_
   test.obj <- data
 
   # default to use run_id as out_path unless otherwise provided
-  if (is.null(out_path)) {
-    if (!is.null(test.obj$run_info$run_id)) {
-      prj_prefix <- test.obj$run_info$run_id[1]
-      out_path <- file.path(work_path, prj_prefix)
-    }
+  # Ensure test.obj$run_info$run_id exists e.g. custom dataset that didn't begin with process.raw()
+  if (is.null(test.obj$run_info$run_id)) {
+    test.obj$run_info$run_id <- paste0("run_", format(Sys.Date(), "%Y%m%d"))
   }
-
+  # Set out_path if not provided
   if (is.null(out_path)) {
-    out_path <- file.path(getwd(), data$run_info$run_id[1])
+    out_path <- file.path(work_path, test.obj$run_info$run_id)
+  }
+  # create out_path if it doesn't exist
+  if (!dir.exists(out_path)) {
+    dir.create(out_path, recursive = TRUE)
   }
 
   message(paste0("[MSG] out_path: ", out_path))
