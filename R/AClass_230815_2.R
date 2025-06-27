@@ -345,15 +345,15 @@ classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_
   # choose algorithms
   test.obj <- nano.test(prefix = prefix, training_model_obj = training_model_obj, data = test.obj, alg_list = alg_list, out_path = out_path) # output text file to out_path
 
-  # Optionally remap Torchia 2016 subgroup labels to Ho et al. 2019 consensus naming
-  if(remap_to_atrt_consensus){
-    test.obj <- remap.subgroups(data = test.obj, slot = "test_results_full", column = "Class", map = "Torchia2016_to_Ho2019")
-  }
-
   # Step 7: Consolidate results
   # choose min max range based on model accuracy
   test.obj <- get.nano.test.results(prefix,test.obj, out_path = out_path)
   #saveRDS(test.obj, file = file.path(out_path,paste0(prefix,"_test.data.tested.RDS")))
+
+  # Optionally remap Torchia 2016 subgroup labels to Ho et al. 2019 consensus naming. Must be run after nano.test() and get.nano.test.results()
+  if(remap_to_atrt_consensus){
+    test.obj <- remap.subgroups(data = test.obj, map = "Torchia2016_to_Ho2019")
+  }
 
   # Step 8: Set Colour Code based on pre-trained models and remap_to_atrt_consensus flag
   group <- unique(training_model_obj$train.data.main$Group)
@@ -2934,43 +2934,40 @@ check_and_prepare_test_data <- function(test_data, model, rename_map = NULL) {
 #' @title Remap subgroup labels in a slot of AClass object
 #' @description
 #' Internal helper function to remap subgroup labels from Torchia et al. 2016 to Ho et al. 2019 consensus names.
-#' Intended to be called after `nano.test()`, when `test_results_full` is present.
+#' Intended to be called after `nano.test()` and `get.nano.test.results()`, when `test_results_full`, `test_results_agg` and `test_results` are present.
 #'
 #' @param data AClass object that has been analyzed with `nano.test()`.
-#' @param slot Character. Slot name within AClass object to be modified. Default is "test_results_full".
-#' @param column Character. Column within the slot to apply remapping. Default is "Class".
 #' @param map Character. Mapping scheme to use. Currently supports only "Torchia2016_to_Ho2019".
 #' @return Modified AClass object with updated group labels.
 #' @keywords internal
-remap.subgroups <- function(data, slot = "test_results_full", column = "Class", map = "Torchia2016_to_Ho2019") {
-  if (map == "Torchia2016_to_Ho2019") {
-    remap <- c("Group1" = "SHH", "Group2A" = "TYR", "Group2B" = "MYC")
-  } else {
-    stop("[MSG] Unsupported mapping scheme: ", map)
+remap.subgroups <- function(data, map = "Torchia2016_to_Ho2019") {
+  if (map != "Torchia2016_to_Ho2019") {
+    stop("[MSG] Unsupported mapping scheme.")
   }
 
-  if (!slot %in% names(data)) {
-    warning("[MSG] Slot '", slot, "' not found in AClass object.")
-    return(data)
+  remap <- c("Group1" = "SHH", "Group2A" = "TYR", "Group2B" = "MYC")
+  result_slots <- list(
+    test_results_full = "Class",
+    test_results_agg = "Class",
+    test_results     = "Class"
+  )
+
+  for (slot in names(result_slots)) {
+    col <- result_slots[[slot]]
+
+    if (!is.null(data[[slot]]) && col %in% colnames(data[[slot]])) {
+      old_vals <- as.character(data[[slot]][[col]])
+      new_vals <- remap[old_vals]
+
+      if (any(is.na(new_vals))) {
+        warning(paste0("[MSG] Remapping failed: unexpected labels in slot '", slot, "'"))
+      } else {
+        data[[slot]][[col]] <- as.character(new_vals)
+      }
+    }
   }
-
-  slot_data <- data[[slot]]
-
-  if (!is.data.frame(slot_data)) {
-    warning("[MSG] Slot '", slot, "' is not a data.frame. Skipping remapping.")
-    return(data)
-  }
-
-  if (!column %in% colnames(slot_data)) {
-    warning("[MSG] Column '", column, "' not found in slot '", slot, "'. No remapping applied.")
-    return(data)
-  }
-
-  slot_data[[column]] <- as.character(remap[as.character(slot_data[[column]])])
-  data[[slot]] <- slot_data
 
   return(data)
 }
-
 
 
