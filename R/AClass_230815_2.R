@@ -293,11 +293,12 @@ batch.process.raw <- function(work_path=getwd(), raw_dir_path, keep_file_path=NU
 #' @param out_path Alternative output location instead of run_id under work_path
 #' @param thres_geomean threshold for report to be considered passing. Default is `100`. `NULL` indicate skipping threshold check.
 #' @param report_type report format options. `Summary` or `Detailed` description. Refer to `nano.plot()`
+#' @param remap_to_atrt_consensus Logical. If TRUE, will remap Torchia et al. 2016 subgroup names to ATRT consensus names from Ho et al. 2019.
 #' @return A classified AClass object with test results, probability scores, assigned groups, and create visualization outputs.
 #' @examples
 #' data.obj <- classify.data(data = data.obj,prefix = "demo",training_model_obj = training_models)
 #' @export
-classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_list = c("rf","glmnet","pam", "nb", "knn"), keep_file_path = NULL, omit_file_path = NULL, out_path=NULL, thres_geomean=100, report_type="Summary"){
+classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_list = c("rf","glmnet","pam", "nb", "knn"), keep_file_path = NULL, omit_file_path = NULL, out_path=NULL, thres_geomean=100, report_type="Summary", remap_to_atrt_consensus=FALSE){
 
   if(is.null(prefix)) {stop("[MSG] prefix is required but missing.")}
   if(is.null(work_path)){stop("[MSG] work_path missing")}
@@ -349,9 +350,9 @@ classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_
   test.obj <- get.nano.test.results(prefix,test.obj, out_path = out_path)
   #saveRDS(test.obj, file = file.path(out_path,paste0(prefix,"_test.data.tested.RDS")))
 
-  # Step 8: Set Colour Code based on pre-trained models
+  # Step 8: Set Colour Code based on pre-trained models and remap_to_atrt_consensus flag
   group <- unique(training_model_obj$train.data.main$Group)
-  test.obj <- nano.set.colour(test.obj, group)
+  test.obj <- nano.set.colour(test.obj, group, remap_to_atrt_consensus=remap_to_atrt_consensus)
 
   # Step 9: Generate report
   test.obj <- nano.plot(prefix = prefix, data = test.obj, prob= "Avg_Probability", report_type=report_type, print_report = TRUE, thres_avg_prob=0, thres_geomean = thres_geomean, out_path=out_path)
@@ -2179,6 +2180,7 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
 #' @param data AClass object with a training data slot.
 #' @param Group_names Optional character vector of group names. If `NULL`, will use labels in the data.
 #' @param data_name Character. Name of the data slot to pull group labels from. Options: "train.data.main" or "train.data.validate".
+#' @param remap_to_atrt_consensus Logical. If TRUE, will remap Torchia et al. 2016 subgroup names to ATRT consensus names from Ho et al. 2019.
 #' @return Modified AClass object with a new `colour_code` data frame for plotting.
 #' @examples
 #' # Case 1: Auto-detect groups from train.data.main
@@ -2194,11 +2196,10 @@ nano.MDS <- function(prefix, data, plot_type = c("boxplot","plot","ggplot","ggpl
 #' data <- nano.set.colour(data, Group_names = c("A", "B", "C"))  # default numeric colors applied
 #'
 #' @export
-nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.main","train.data.validate")){
+nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.main","train.data.validate"), remap_to_atrt_consensus = FALSE){
 
   #check and assign default
   data_name <- match.arg(data_name)
-
 
   Group_labels <- vector()
   if (is.null(Group_names)) {
@@ -2216,18 +2217,34 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
   } else {
     Group_labels <- Group_names
   }
+
+  # Remap Torchia 2016 to Ho 2019, only if valid
+  group_remap <- c("Group1" = "SHH", "Group2A" = "TYR", "Group2B" = "MYC")
+  if (remap_to_atrt_consensus) {
+    if (setequal(sort(Group_labels), sort(names(group_remap)))) {
+      message("[MSG] Remapping Torchia 2016 subgroups to Ho et al. 2019 labels.")
+      if (!is.null(data[[data_name]]$Group)) {
+        data[[data_name]]$Group <- as.character(group_remap[as.character(data[[data_name]]$Group)])
+      }
+      Group_labels <- as.character(group_remap[Group_labels])
+    } else {
+      warning("[MSG] Remapping skipped. Group labels do not match expected Torchia et al., 2016 format.")
+    }
+  }
+
+  #detect color schemes from subgroups#
   if (all(Group_labels %in% c("Group1","Group2"))){
-    message(paste0("[MSG] Torchia et. al., 2015 ATRT Subgroups detected:"))
+    message(paste0("[MSG] Torchia et al., 2015 ATRT Subgroups detected:"))
     message(Group_labels)
     col_code <- data.frame(Group=as.factor(c("Group1","Group2")),Group_Colour=c("red","blue"), stringsAsFactors = FALSE)
     col_code$Group <- factor(col_code$Group, levels = c("Group1","Group2"))
   } else if (all(Group_labels %in% c("Group1","Group2A","Group2B"))){
-    message(paste0("[MSG] Torchia et. al., 2016 ATRT Subgroups detected:"))
+    message(paste0("[MSG] Torchia et al., 2016 ATRT Subgroups detected:"))
     message(Group_labels)
     col_code <- data.frame(Group=as.factor(c("Group1","Group2A","Group2B")),Group_Colour=c("red","blue","green"), stringsAsFactors = FALSE)
     col_code$Group <- factor(col_code$Group, levels = c("Group1","Group2A","Group2B"))
   } else if (all(Group_labels %in% c("SHH","TYR","MYC"))){
-    message(paste0("[MSG] Ho et. al., 2019 ATRT Subgroups detected:"))
+    message(paste0("[MSG] Ho et al., 2019 ATRT Subgroups detected:"))
     message(Group_labels)
     col_code <- data.frame(Group=as.factor(c("SHH","TYR","MYC")),Group_Colour=c("#4074E5","#DD1D06","#23AE2E"), stringsAsFactors = FALSE)
     col_code$Group <- factor(col_code$Group, levels = c("SHH","TYR","MYC"))
@@ -2801,7 +2818,7 @@ convert2test <- function(data){
   if ("Group" %in% colnames(df)) {
     test$norm.t <- subset(df, select =-Group)
   } else {
-    warning("[MSG] Group column not found in train.data.validate. Proceeding with unlabeled test data.")
+    message("[MSG] Group column not found in train.data.validate. Proceeding with unlabeled test data.")
     test$norm.t <- df
   }
   test$prenorm_qc <- data$prenorm_qc

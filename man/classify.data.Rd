@@ -14,7 +14,8 @@ classify.data(
   omit_file_path = NULL,
   out_path = NULL,
   thres_geomean = 100,
-  report_type = "Summary"
+  report_type = "Summary",
+  remap_to_atrt_consensus = FALSE
 )
 }
 \arguments{
@@ -37,6 +38,8 @@ classify.data(
 \item{thres_geomean}{threshold for report to be considered passing. Default is \code{100}. \code{NULL} indicate skipping threshold check.}
 
 \item{report_type}{report format options. \code{Summary} or \code{Detailed} description. Refer to \code{nano.plot()}}
+
+\item{remap_to_atrt_consensus}{Logical. If TRUE, will remap Torchia et al. 2016 subgroup names to ATRT consensus names from Ho et al. 2019.}
 }
 \value{
 A classified AClass object with test results, probability scores, assigned groups, and create visualization outputs.
