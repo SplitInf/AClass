@@ -2,8 +2,7 @@
 % Please edit documentation in R/AClass_230815_2.R
 \name{initialize.prj}
 \alias{initialize.prj}
-\title{Installs and loads required packages for AClass project. This includes both CRAN and Bioconductor packages,
-and ensures all dependencies are available. Note: archived version of NanoStringNorm is utilized}
+\title{Initialize environment and install required packages}
 \usage{
 initialize.prj(install_missing = TRUE)
 }

@@ -2,18 +2,19 @@
 % Please edit documentation in R/AClass_230815_2.R
 \name{nano.prep}
 \alias{nano.prep}
-\title{Transform and check dataframe for missing values}
+\title{Pretrain QC}
 \usage{
 nano.prep(data)
 }
 \arguments{
-\item{train.norm}{Normalized dataframe.}
-
-\item{test.norm}{Normalized dataframe.}
+\item{data}{AClass object with normalized expression matrix in \code{$norm}.}
 }
 \value{
-??.
+AClass object with added \code{$norm.t} (transposed normalized data). Issues a warning if near-zero variance features are detected.
 }
 \description{
 Transform and check dataframe for missing values
+}
+\examples{
+data.obj <- nano.prep(data.obj)
 }

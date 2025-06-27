@@ -2,20 +2,23 @@
 % Please edit documentation in R/AClass_230815_2.R
 \name{nano.prenorm.qc}
 \alias{nano.prenorm.qc}
-\title{Prenorm Nanostring Data and produce report. Required to calculate HK_geomean}
+\title{Perform data QC}
 \usage{
 nano.prenorm.qc(data, code_class = "Housekeeping", prefix, out_path = NULL)
 }
 \arguments{
+\item{data}{AClass object output from nano.load.}
+
 \item{code_class}{Default "Housekeeping".}
 
 \item{prefix}{project prefix}
-
-\item{raw_data}{Raw dataframe from nano.load.}
 }
 \value{
 Report of the raw data and GeoMean table.
 }
 \description{
-Prenorm Nanostring Data and produce report. Required to calculate HK_geomean
+This step is performed before normalization to evaluate data quality. Produces QC report and is required to calculate HK_geomean
+}
+\examples{
+data.obj <- nano.prenorm.qc(data.obj)
 }

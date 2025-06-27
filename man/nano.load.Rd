@@ -2,7 +2,7 @@
 % Please edit documentation in R/AClass_230815_2.R
 \name{nano.load}
 \alias{nano.load}
-\title{Looks for Nanostring Data with "NormalizedData.csv" and load as dataframe}
+\title{Load NanoString NormalizedData.csv files and return structured raw object}
 \usage{
 nano.load(
   raw_path = getwd(),
@@ -14,13 +14,22 @@ nano.load(
 \arguments{
 \item{raw_path}{path of the directory where raw nanostring data is kept. Read recursively.}
 
-\item{omit_file_path}{path and tab-delimited list of sample names to be omitted. One per row.}
+\item{keep_file_path}{Optional. File listing samples to keep (one sample ID per row, no header).}
 
-\item{recursive_read}{read everything in folder. This may have large impact depending on variations between runs. Recommend FALSE by default.}
+\item{omit_file_path}{Optional. File listing samples to omit (one sample ID per row, no header).}
+
+\item{recursive_read}{Logical. Whether to recursively search subdirectories. May introduce run-to-run variation. Default is FALSE.}
 }
 \value{
-dataframe of read data and number of samples loaded.
+AClass object, which is a list of dataframe with read data and number of samples loaded.
 }
 \description{
-Looks for Nanostring Data with "NormalizedData.csv" and load as dataframe
+Loads all files with "NormalizedData" in the filename and ".csv" extension, starting at row 16.
+}
+\examples{
+raw.obj <- nano.load(
+  raw_path = "data/",
+  keep_file_path = "samples_keep.txt",
+  omit_file_path = "samples_omit.txt"
+)
 }

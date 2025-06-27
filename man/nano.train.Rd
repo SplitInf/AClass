@@ -2,7 +2,7 @@
 % Please edit documentation in R/AClass_230815_2.R
 \name{nano.train}
 \alias{nano.train}
-\title{Prenorm Nanostring Data and produce report}
+\title{Ensemble model training}
 \usage{
 nano.train(
   prefix,
@@ -19,23 +19,31 @@ nano.train(
 )
 }
 \arguments{
+\item{data}{AClass object with \code{$train.norm}. Expects column \code{"Group"}.}
+
 \item{work_path}{project work path}
 
 \item{alg_list}{list of alg}
 
-\item{probes_rank_path}{path to probe ranking list. Given list sorted by p value. Looks for probes_list.txt in the working directory if probes_rank_path is missing.}
+\item{probes_rank_path}{path to probe/gene ranking list, one gene per line. E.g. gene list sorted by p value (most significant to least). Looks for probes_list.txt in the working directory if probes_rank_path is missing.}
 
 \item{min_test_features}{Minimum number of features tested.}
 
 \item{max_test_features}{Maximum number of features tested.}
 
 \item{out_path}{output path. When not provided out_path will be extracted from run_info (default) and work_path}
-
-\item{train.norm}{Normalized dataframe.}
 }
 \value{
-Optimal_Training_Attributes Full_Training_Attributes.txt performance_pdf
+Updated AClass object containing trained models (\code{$training_model_list}), training metadata, and the training dataset. Also saves model performance matrices and confusion matrices to disk.
 }
 \description{
 Prenorm Nanostring Data and produce report
+}
+\examples{
+training_models <- nano.train(
+  prefix = "demo",
+  data = train.obj,  # AClass object created using nano.trainsplit()
+  work_path = "path/to/output",
+  probes_rank_path = "your_sorted_list.txt"
+)
 }
