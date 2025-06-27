@@ -301,6 +301,9 @@ classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_
 
   if(is.null(prefix)) {stop("[MSG] prefix is required but missing.")}
   if(is.null(work_path)){stop("[MSG] work_path missing")}
+  if(is.null(training_model_obj$training_model_list)) {
+    stop("[MSG] training_model_obj is missing expected structure (no training_model_list).")
+  }
 
   test.obj <- data
 
@@ -331,6 +334,9 @@ classify.data <- function(work_path=NULL, data, prefix, training_model_obj, alg_
     message(paste0("[MSG] Omitting ",length(test.omit), " samples"))
     test.obj$norm.t <- test.obj$norm.t[!row.names(test.obj$norm.t) %in% test.omit,,drop=FALSE]
   }
+
+  # Ensure same gene names are used in test.obj and model
+  test.obj <- check_and_prepare_test_data(test.obj, model = training_model_obj)
 
   # Step 6: Test
   # choose algorithms
@@ -1213,7 +1219,7 @@ nano.norm <- function(data, SampleContent = "housekeeping.geo.mean", round.value
 #'
 #' @param training_model_obj Object returned from `nano.train()`, must include `$training_model_list`.
 #' @param alg_list Optional. Subset of algorithms to test. If not provided, all algorithms in the training object are used.
-#' @param data AClass object containing test data.
+#' @param data AClass object containing test data in `norm.t`
 #' @param min_test_features Minimum number of features to test. If not specified, inferred from training model.
 #' @param max_test_features Maximum number of features to test. If not specified, inferred from training model.
 #' @param prefix Output file prefix (e.g., `paste(project, format(Sys.time(), "%Y-%m-%d_%H%M"), sep = "_")`).
@@ -2869,3 +2875,50 @@ df2nano <- function(df, colour_code=NULL, add_to=c("train.data.main","train.data
 
   return(nano.obj)
 }
+
+##### check_and_prepare_test_data #####
+#' @title Check if test data object uses the same genes as pre-trained model
+#' @description
+#' Ensures that the test data (`norm.t`) contains all genes required by the pre-trained model.
+#' Optionally renames gene symbols to match training model feature names (e.g., HGNC-approved to aliases).
+#' A default mapping (e.g., CTSV → CTSL2, MIR9-1HG → C1orf61) is applied unless a custom `rename_map` is provided.
+#'
+#' @param test_data An AClass-style object containing `norm.t`.
+#' @param model A pre-trained AClass model object with `training_model_list` and preprocessing info.
+#' @param rename_map Optional named list of gene symbol remapping (e.g., list("CTSV" = "CTSL2")).
+#' @return Modified test_data object with matched and reordered features.
+#' @export
+check_and_prepare_test_data <- function(test_data, model, rename_map = NULL) {
+  # Genes expected by the trained model
+  expected_features <- names(model$training_model_list[[1]]$preProcess$mean)
+  test_features <- colnames(test_data$norm.t)
+
+  # Use default rename_map if none supplied
+  if (is.null(rename_map)) {
+    rename_map <- list("CTSV" = "CTSL2", "MIR9-1HG" = "C1orf61")
+  }
+
+  # Apply renaming to test_data$norm.t
+  for (old in names(rename_map)) {
+    new <- rename_map[[old]]
+    if (old %in% test_features && !(new %in% test_features)) {
+      colnames(test_data$norm.t)[colnames(test_data$norm.t) == old] <- new
+    }
+  }
+
+  # Re-collect feature names after renaming
+  test_features <- colnames(test_data$norm.t)
+
+  # Check for missing genes
+  missing <- setdiff(expected_features, test_features)
+  if (length(missing) > 0) {
+    stop("[MSG] Missing genes in test data after renaming: ", paste(missing, collapse = ", "))
+  }
+
+  # Reorder columns in test data to match training model
+  test_data$norm.t <- test_data$norm.t[, expected_features]
+
+  return(test_data)
+}
+
+
