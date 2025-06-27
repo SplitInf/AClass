@@ -1464,6 +1464,8 @@ get.nano.test.results <- function(prefix, data, print_report=FALSE, out_path=NUL
 #' @export
 nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, thres_geomean = NULL, report_type=c("Summary","Detailed"), print_report=FALSE, out_path=NULL){
 
+  report_type <- match.arg(report_type)
+
   # Check #
   if(prob == "Avg_Cal_Probability" & is.null(data$test_results_agg$Avg_Cal_Probability)){
     stop("[MSG] Avg_Cal_Probability missing from data. Run nano.calibrate() first to plot results from calibrated probability or proceed with Avg_Probability.")
@@ -1797,6 +1799,9 @@ nano.plot <- function(prefix, data, prob="Avg_Probability", thres_avg_prob=0, th
 #' cal_models <- nano.cal_model(cal_labels.df, method = "glm")
 #' @export
 nano.cal_model <- function(cal_labels.df, method=c("glm","glmnet")) {
+
+  method <- match.arg(method)
+
   n_data_pt <- nrow(cal_labels.df)
   print(paste0("[MSG] Using ",n_data_pt, " data points for calibration"))
   Cal_models <- list()
@@ -1910,6 +1915,9 @@ nano.cal_model <- function(cal_labels.df, method=c("glm","glmnet")) {
 #' data <- nano.calibrate(data, Cal_models)
 #' @export
 nano.calibrate <- function(prefix=NULL, data, Cal_models, print_report = FALSE, method=c("glm","glmnet"), out_path=NULL){
+
+  method <- match.arg(method)
+
   if("Avg_Cal_Probability" %in% colnames(data$test_results_agg)){
     stop("[MSG] Data set has been calibrated already")
   }
@@ -2525,6 +2533,8 @@ batch.nano.eval.test <- function(prefix, use_class=NULL, Prob_range=seq(from=0,t
 #' @export
 nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, plot_type = c("plot","ggplot","ggplot_label", "ggplot_label_test", "plotly"), train_ellipse=FALSE, memberships=NULL, gene_list=NULL, omit_sample=NULL, prob=NULL){
 
+  plot_type <- match.arg(plot_type)
+
   data_train <- train.data$train.data.main
   data_test <- test.data$norm.t
   data_test_results <- test.data$test_results
@@ -2682,18 +2692,18 @@ nano.MDS.train.test <- function(prefix, train.data , test.data , colour_code, pl
 #' Performs wrapper-based feature selection using the Boruta algorithm on the training data.
 #' Assumes the input object contains a `train.data.main` data frame with a `Group` column for classification.
 #'
-#' @param nanostring_data An AClass object with a `train.data.main` slot. Must include a `Group` column for supervised classification.
+#' @param data An AClass object with a `train.data.main` slot. Must include a `Group` column for supervised classification.
 #'
 #' @return A list with selected important genes, the Boruta object after tentative fix, and selection statistics.
 #' @export
-nano.feat.select <- function(nanostring_data){
+nano.feat.select <- function(data){
   library(Boruta)
 
-  if(!"train.data.main" %in% names(nanostring_data)){
+  if(!"train.data.main" %in% names(data)){
     stop("[MSG] Input file not supported. Check to ensure it contains train.data.main.")
   }
 
-  boruta_data <- nanostring_data$train.data.main
+  boruta_data <- data$train.data.main
   boruta_data$Group <- as.factor(boruta_data$Group)
   Boruta.obj <- list()
 
@@ -2701,33 +2711,33 @@ nano.feat.select <- function(nanostring_data){
   # doTrace   get report of the progress
 
   # features selection
-  boruta.nanostring_data <- Boruta(Group~., data = boruta_data, doTrace = 2)
-  print(boruta.nanostring_data)
+  boruta.data <- Boruta(Group~., data = boruta_data, doTrace = 2)
+  print(boruta.data)
 
   # take a call on tentative features
   #  simple comparison of the median feature Z-score with the median Z-score of the most important shadow feature
-  boruta.nanostring_data.fix <- TentativeRoughFix(boruta.nanostring_data)
-  print(boruta.nanostring_data.fix)
+  boruta.data.fix <- TentativeRoughFix(boruta.data)
+  print(boruta.data.fix)
 
   # plots
-  plot(boruta.nanostring_data.fix, xlab = "", xaxt = "n")
-  lz<-lapply(1:ncol(boruta.nanostring_data.fix$ImpHistory),function(i)
-    boruta.nanostring_data.fix$ImpHistory[is.finite(boruta.nanostring_data.fix$ImpHistory[,i]),i])
-  names(lz) <- colnames(boruta.nanostring_data.fix$ImpHistory)
+  plot(boruta.data.fix, xlab = "", xaxt = "n")
+  lz<-lapply(1:ncol(boruta.data.fix$ImpHistory),function(i)
+    boruta.data.fix$ImpHistory[is.finite(boruta.data.fix$ImpHistory[,i]),i])
+  names(lz) <- colnames(boruta.data.fix$ImpHistory)
   Labels <- sort(sapply(lz,median))
   axis(side = 1,las=2,labels = names(Labels),
-       at = 1:ncol(boruta.nanostring_data.fix$ImpHistory), cex.axis = 0.7)
+       at = 1:ncol(boruta.data.fix$ImpHistory), cex.axis = 0.7)
 
   ### get list of important attributes ###
-  important_genes <- getSelectedAttributes(boruta.nanostring_data.fix, withTentative = F)
+  important_genes <- getSelectedAttributes(boruta.data.fix, withTentative = F)
 
   ### Extract attribute statistics ###
-  boruta.nanostring_data.fix_df <- attStats(boruta.nanostring_data.fix)
-  print(boruta.nanostring_data.fix_df)
+  boruta.data.fix_df <- attStats(boruta.data.fix)
+  print(boruta.data.fix_df)
 
   Boruta.obj[["Important_Genes"]] <- important_genes
-  Boruta.obj[["Boruta_obj_rough_fix"]] <- boruta.nanostring_data.fix
-  Boruta.obj[["Stats"]] <- boruta.nanostring_data.fix_df
+  Boruta.obj[["Boruta_obj_rough_fix"]] <- boruta.data.fix
+  Boruta.obj[["Stats"]] <- boruta.data.fix_df
   return(Boruta.obj)
 }
 
@@ -2800,29 +2810,28 @@ convert2test <- function(data){
 #' @export
 df2nano <- function(df, colour_code=NULL, add_to=c("train.data.main","train.data.validate")){
 
+  if (is.character(add_to)) {
+    add_to <- match.arg(add_to)
+  }
+
   # check if there is Group column
-  if(is.null(df$Group)){
-    stop("[MSG] Missing Group column")
-  }
+  has_group <- "Group" %in% colnames(df)
 
-  # check for
-  if(!(is.data.frame(add_to)) & !(is.vector(add_to) & length(add_to) ==1 )){
-    stop("[MSG] add_to must be either train.data.main or train.data.validate, or dataframe with 2 columns e.g. sample_name1 test/validate")
-  }
-
-  if( is.vector(add_to) & length(add_to) ==1 ){
-    if(add_to != "train.data.main" & add_to !="train.data.validate"){
-      stop("[MSG] add_to must be either train.data.main or train.data.validate, or dataframe with 2 columns e.g. sample_name1 test/validate")
-    }
+  # If assigning to train.data.main, Group column is required
+  if (!has_group && identical(add_to, "train.data.main")) {
+    stop("[MSG] Group column is required when assigning to train.data.main.")
   }
 
   #convert dataframe to nano.obj #
   nano.obj <- list()
-  nano.obj$norm.t <- subset(df, select = -Group)
+  nano.obj$norm.t <- if (has_group) subset(df, select = -Group) else df  #adaptive assignment depending on presence of Group
+
   nano.obj$run_info <- list()
 
   details <- list()
-  details$found <- paste0(ncol(df) - 1, " features ", nrow(df), " samples.")
+  n_features <- if (has_group) ncol(df) - 1 else ncol(df)
+  details$found <- paste0(n_features, " features ", nrow(df), " samples.")  #adaptive assignment depending on presence of Group
+
   details$samples <- row.names(df)
 
   nano.obj$run_info$csv <- list()
