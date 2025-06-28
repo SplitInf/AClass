@@ -170,6 +170,7 @@ From `process.raw()`:
 - `norm.t`: same as `norm` but transposed.
 
 From `nano.trainsplit()`:
+
 - `train.data.main`: Data used for training
 - `train.data.validate`: Held off data for validation
 
@@ -181,6 +182,7 @@ From `classify.data()`:
 - `colour_code`: Subgroups and color code for reports and visualizations.
 
 Log:
+
 - `run_info`: Log information on operations performed on AClass object. From process.raw(), classify.data()
 
 ## Interpreting results:
