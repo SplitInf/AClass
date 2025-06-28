@@ -28,7 +28,8 @@ This tutorial demonstrates how to use `AClass` with your own gene expression mat
 
 The [GSE70678](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE70678) data set was presented in Johann et al. (doi: 10.1016/j.ccell.2016.02.001). It contains 49 ATRT samples on Affymetrix Human Genome U133 Plus 2.0 Arrays.
 
-You can follow the following steps to create AClass object or skip to part 2 to load the datd.
+You can follow the steps below to create an AClass object, or skip to Part 2 to load the provided data.
+
 ```{r eval=FALSE}
 library(GEOquery)
 library(hgu133plus2.db)
@@ -66,7 +67,7 @@ rownames(gene_exprs) <- gene_exprs$Gene
 gene_exprs$Gene <- NULL
 ```
 
-Add subgroup information
+Add subgroup labels based on classification from Ho et al., 2019 (doi: 10.1093/neuonc/noz235)
 
 ```{r eval=FALSE}
 
@@ -110,7 +111,7 @@ head(classified$test_summary)
 
 ## 3. Summary
 
-This workflow can be adapted for any tabular gene expression input, as long as genes are in columns, samples in rows, and subgroup labels are in a `Group` column. For RNA-seq data, ensure proper normalization (e.g., TPM or log2 CPM) before use.
+This workflow can be adapted for any tabular gene expression input, as long as **samples are rows**, **genes are columns**, and a `Group` column is included if training is required. For RNA-seq data, ensure proper normalization (e.g., TPM or log2 CPM) before use.
 
 
 # Case 2 - Expression matrix
@@ -153,3 +154,10 @@ cells_test_obj$test_summary
 ## 3. Summary
 
 This example demonstrates using expression matrix for AClass workflow.
+
+
+# 4. Citation
+
+If you use `AClass` or `CodeSet30`, please cite:
+
+> Ho B, Arnoldo A, Zhong Y, et al. Rapid, economical diagnostic classification of ATRT molecular subgroup using NanoString nCounter platform. *Neuro-Oncology Advances*. 2024. [doi:10.1093/noajnl/vdae004](https://doi.org/10.1093/noajnl/vdae004)

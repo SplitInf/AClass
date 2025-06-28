@@ -85,14 +85,14 @@ test_data <- process.raw(work_path, prefix = project_name, raw_path = test_raw_p
 ## 3.2 Optional: Train Custom Model
 
 In this example, we will split 80% of the data for training and 20% for validation.
-The result AClass object would have new slot `train.data.main` and `train.data.validate`
+The resulting AClass object will contain new slots: `train.data.main` and `train.data.validate`.
 
 Note: This toy dataset is provided to illustrate the training workflow. In real applications, appropriate sample size and balanced subgroup representation are essential.
 
 
 ```{r eval=FALSE}
 
-#split data in to training and validation
+#split data into training and validation
 train <- nano.trainsplit(test_data, training_memberships_path, N.train.per = 0.8)
 ```
 
