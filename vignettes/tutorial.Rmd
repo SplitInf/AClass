@@ -169,10 +169,12 @@ From `process.raw()`:
 - `norm`: data normalized to housekeeping genes by `NanostringNorm`.
 - `norm.t`: same as `norm` but transposed.
 
+
 From `nano.trainsplit()`:
 
 - `train.data.main`: Data used for training
 - `train.data.validate`: Held off data for validation
+
 
 From `classify.data()`:
 
@@ -180,6 +182,7 @@ From `classify.data()`:
 - `test_results`: Aggregated majority vote results.
 - `test_results_full`: All predictions across models.
 - `colour_code`: Subgroups and color code for reports and visualizations.
+
 
 Log:
 
