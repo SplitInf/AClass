@@ -547,21 +547,29 @@ Example classification report output.
 different ‘slots’ that is used through out the workflow.</p>
 <div id="core-slots" class="section level2">
 <h2>Core Slots:</h2>
-<p>From process.raw() - <code>raw</code>: original NanoString data -
-<code>prenorm_qc</code>: QC statistics before normalization. E.g.
-housekeeping genes Mean and GeoMean expression to estimate quality. -
-<code>norm</code>: data normalized to housekeeping genes by
-<code>NanostringNorm</code>. - <code>norm.t</code>: same as
-<code>norm</code> but transposed. From nano.trainsplit() -
-<code>train.data.main</code>: Data used for training -
-<code>train.data.validate</code>: Held off data for validation From
-classify.data() - <code>test_summary</code>: Final class assignments and
-prediction scores. - <code>test_results</code>: Aggregated majority vote
-results. - <code>test_results_full</code>: All predictions across
-models. - <code>colour_code</code>: Subgroups and color code for reports
-and visualizations. Log - <code>run_info</code>: Log information on
-operations performed on AClass object. From process.raw(),
-classify.data()</p>
+<p>From <code>process.raw()</code>:</p>
+<ul>
+<li><code>raw</code>: original NanoString data</li>
+<li><code>prenorm_qc</code>: QC statistics before normalization. E.g.
+housekeeping genes Mean and GeoMean expression to estimate quality.</li>
+<li><code>norm</code>: data normalized to housekeeping genes by
+<code>NanostringNorm</code>.</li>
+<li><code>norm.t</code>: same as <code>norm</code> but transposed.</li>
+</ul>
+<p>From <code>nano.trainsplit()</code>: - <code>train.data.main</code>:
+Data used for training - <code>train.data.validate</code>: Held off data
+for validation</p>
+<p>From <code>classify.data()</code>:</p>
+<ul>
+<li><code>test_summary</code>: Final class assignments and prediction
+scores.</li>
+<li><code>test_results</code>: Aggregated majority vote results.</li>
+<li><code>test_results_full</code>: All predictions across models.</li>
+<li><code>colour_code</code>: Subgroups and color code for reports and
+visualizations.</li>
+</ul>
+<p>Log: - <code>run_info</code>: Log information on operations performed
+on AClass object. From process.raw(), classify.data()</p>
 </div>
 <div id="interpreting-results" class="section level2">
 <h2>Interpreting results:</h2>

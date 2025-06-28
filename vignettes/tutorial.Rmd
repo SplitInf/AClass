@@ -161,20 +161,25 @@ knitr::include_graphics("figures/FigS3b.png")
 The AClass object is a structured list containing data and results in different 'slots' that is used through out the workflow.
 
 ## Core Slots:
-From process.raw()
+From `process.raw()`:
+
 - `raw`: original NanoString data
 - `prenorm_qc`: QC statistics before normalization. E.g. housekeeping genes Mean and GeoMean expression to estimate quality.
 - `norm`: data normalized to housekeeping genes by `NanostringNorm`.
 - `norm.t`: same as `norm` but transposed.
-From nano.trainsplit()
+
+From `nano.trainsplit()`:
 - `train.data.main`: Data used for training
 - `train.data.validate`: Held off data for validation
-From classify.data()
+
+From `classify.data()`:
+
 - `test_summary`: Final class assignments and prediction scores.
 - `test_results`: Aggregated majority vote results.
 - `test_results_full`: All predictions across models.
 - `colour_code`: Subgroups and color code for reports and visualizations.
-Log
+
+Log:
 - `run_info`: Log information on operations performed on AClass object. From process.raw(), classify.data()
 
 ## Interpreting results:
