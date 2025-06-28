@@ -161,6 +161,7 @@ knitr::include_graphics("figures/FigS3b.png")
 The AClass object is a structured list containing data and results in different 'slots' that is used through out the workflow.
 
 ## Core Slots:
+
 From `process.raw()`:
 
 - `raw`: original NanoString data
