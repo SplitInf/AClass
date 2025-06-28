@@ -682,9 +682,9 @@ nano.trainsplit <- function(data,training_memberships_path,N.train.per, seed=NUL
 
 ##### nano.train #####
 #' @title Ensemble model training
-#' @description Prenorm Nanostring Data and produce report
+#' @description Create ensemble model using data from `$train.data.main` and produce report training performance
 #'
-#' @param data AClass object with \code{$train.norm}. Expects column `"Group"`.
+#' @param data AClass object with \code{$train.data.main}. Requires column `"Group"`.
 #' @param alg_list list of alg
 #' @param work_path project work path
 #' @param probes_rank_path path to probe/gene ranking list, one gene per line. E.g. gene list sorted by p value (most significant to least). Looks for probes_list.txt in the working directory if probes_rank_path is missing.
@@ -2253,7 +2253,7 @@ nano.set.colour <- function(data, Group_names = NULL, data_name = c("train.data.
 
 ##### nano.eval.test #####
 #' @title Evaluate test results across probability thresholds
-#' @description This function aggregates and evaluates model predictions from *_test_summary.txt files, generating performance metrics across specified probability thresholds and producing confusion matrices (if `Group` column exist in dataframe) and accuracy summaries. Note: `confusionMatrix()` from the `caret` package requires more than two classes to compute multiclass metrics reliably.
+#' @description This function aggregates and evaluates model predictions from *_test_summary.txt files fount in `in_path`, generating performance metrics across specified probability thresholds and producing confusion matrices (if `Group` column exist in dataframe) and accuracy summaries. Note: `confusionMatrix()` from the `caret` package requires more than two classes to compute multiclass metrics reliably.
 #' @param prefix Prefix string to identify result files.
 #' @param use_class Character vector specifying class order for factor alignment.
 #' @param Prob_range Numeric vector of thresholds to evaluate (e.g., seq(0,1,0.01)).

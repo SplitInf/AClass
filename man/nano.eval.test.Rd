@@ -40,7 +40,7 @@ nano.eval.test(
 A list with two entries: overall accuracy and confusion matrix.
 }
 \description{
-This function aggregates and evaluates model predictions from *_test_summary.txt files, generating performance metrics across specified probability thresholds and producing confusion matrices (if \code{Group} column exist in dataframe) and accuracy summaries. Note: \code{confusionMatrix()} from the \code{caret} package requires more than two classes to compute multiclass metrics reliably.
+This function aggregates and evaluates model predictions from *_test_summary.txt files fount in \code{in_path}, generating performance metrics across specified probability thresholds and producing confusion matrices (if \code{Group} column exist in dataframe) and accuracy summaries. Note: \code{confusionMatrix()} from the \code{caret} package requires more than two classes to compute multiclass metrics reliably.
 }
 \examples{
 # Run evaluation (requires *_test_summary.txt and mapping file)

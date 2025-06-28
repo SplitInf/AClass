@@ -1,0 +1,155 @@
+---
+title: "AClass Tutorial Part 2: Custom Data"
+author: "Ben Ho, Annie Huang"
+date: "2024-06-27"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+vignette: >
+  %\VignetteIndexEntry{AClass Tutorial Part 2: Custom Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+
+This tutorial demonstrates how to use `AClass` with your own gene expression matrix, such as microarray or RNA-seq data. We will walk through 2 cases: (1) using Affymetrix microarray data from GEO (GSE70678) and prepare it for AClass work flow. (2) Classifying ATRT cell lines from Golbourn et al., 2024 (doi: 10.1093/neuonc/noae120.)
+
+# Case 1 - Affymetrix microarray data from GEO
+
+## 1. Download and Prepare Data
+
+The [GSE70678](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE70678) data set was presented in Johann et al. (doi: 10.1016/j.ccell.2016.02.001). It contains 49 ATRT samples on Affymetrix Human Genome U133 Plus 2.0 Arrays.
+
+You can follow the following steps to create AClass object or skip to part 2 to load the datd.
+```{r eval=FALSE}
+library(GEOquery)
+library(hgu133plus2.db)
+library(AnnotationDbi)
+library(dplyr)
+
+# Download expression matrix
+gse <- getGEO("GSE70678", GSEMatrix = TRUE)[[1]]
+exprs_mat <- exprs(gse)
+```
+
+Map Affymetrix probe IDs to gene symbols:
+
+```{r eval=FALSE}
+gene_symbols <- mapIds(
+  hgu133plus2.db,
+  keys = rownames(exprs_mat),
+  column = "SYMBOL",
+  keytype = "PROBEID",
+  multiVals = "first"
+)
+
+exprs_df <- data.frame(Gene = gene_symbols, exprs_mat)
+exprs_df <- exprs_df[!is.na(exprs_df$Gene), ]
+```
+
+Collapse to unique gene level by averaging probes:
+
+```{r eval=FALSE}
+gene_exprs <- exprs_df %>%
+  group_by(Gene) %>%
+  summarize(across(where(is.numeric), mean)) %>%
+  as.data.frame()
+rownames(gene_exprs) <- gene_exprs$Gene
+gene_exprs$Gene <- NULL
+```
+
+Add subgroup information
+
+```{r eval=FALSE}
+
+#path to files used in the tutorial
+aclass_files_path <- system.file("extdata", package = "AClass")
+
+#sample subgroup information
+anno_path <- paste(aclass_files_path,"Ho_2019_GSE70678_k3_train_labels.txt",sep= "/")
+
+anno <- read.table(anno_path, header = TRUE)
+colnames(anno) <- c("Sample", "Group")
+
+# Merge metadata with expression
+tumors_data <- merge(anno, t(gene_exprs), by.x="Sample", by.y="row.names")
+rownames(tumors_data) <- tumors_data$Sample
+tumors_data <- tumors_data[, -1]
+```
+
+## 2. Create AClass Object
+
+```{r eval=FALSE}
+library(AClass)
+
+data(tumors_data) #Affymentrix tumor data
+
+#convert to AClass object
+tumors_obj <- df2nano(tumors_data, add_to = "train.data.main")
+``` 
+
+You can now use this object for classification or model training:
+
+```{r eval=FALSE}
+classified <- classify.data(
+  work_path = "/Your/Work/Path",
+  data = tumors_obj,
+  prefix = "demo_affy",
+  training_model_obj = models
+)
+head(classified$test_summary)
+```
+
+## 3. Summary
+
+This workflow can be adapted for any tabular gene expression input, as long as genes are in columns, samples in rows, and subgroup labels are in a `Group` column. For RNA-seq data, ensure proper normalization (e.g., TPM or log2 CPM) before use.
+
+
+# Case 2 - Expression matrix
+
+## 1. Transform expression matrix to AClass object for testing
+
+In the [study](https://pubmed.ncbi.nlm.nih.gov/38981018/) by Golbourn et al., 2024 (doi: 10.1093/neuonc/noae120.), AClass was used to identify the subgroup of some ATRT cell lines that were profiled using Illumina HT12 array data in the form of an expression matrix. Refer to the publication for details on the data set and models.
+
+```{r eval=FALSE}
+
+data(cells_data) # load cell lines data
+data(models) # load pre-trained nanostring models
+data(models_Ilmn) # load pre-trained Illumina HT12 array models.
+
+#convert expression matrix to AClass object
+cells_obj <- df2nano(df=cells_data, add_to = "train.data.validate")
+
+#prepare object for testing. There will be a warning message that indicate there is no Group information in case you need it for training (see Case 1 above). Since we are only interested in testing, this message can be ignored.
+cells_test_obj <- convert2test(data = cells_obj) 
+
+```
+
+## 2. Classify new data with pre-trained models
+
+```{r eval=FALSE}
+
+#Classify samples. Note that `thres_geomean` = NULL as that is currently reserved for NanoString data. The parameter `remap_to_atrt_consensus` = TRUE by default to return ATRT consensus subgroup nomenclature naming
+cells_test_obj <- classify.data(work_path = work_path, data = cells_test_obj, prefix = "Ilmn", training_model_obj = models_Ilmn, thres_geomean = NULL, remap_to_atrt_consensus = TRUE) 
+
+#check results here:
+cells_test_obj$test_summary
+
+cells_test_obj <- classify.data(work_path = work_path, data = cells_test_obj, prefix = "NS", training_model_obj = models_Ilmn, thres_geomean = NULL, remap_to_atrt_consensus = TRUE) 
+
+#check results here:
+cells_test_obj$test_summary
+
+```
+
+## 3. Summary
+
+This example demonstrates using expression matrix for AClass workflow.

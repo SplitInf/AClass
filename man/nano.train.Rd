@@ -19,7 +19,7 @@ nano.train(
 )
 }
 \arguments{
-\item{data}{AClass object with \code{$train.norm}. Expects column \code{"Group"}.}
+\item{data}{AClass object with \code{$train.data.main}. Requires column \code{"Group"}.}
 
 \item{work_path}{project work path}
 
@@ -37,7 +37,7 @@ nano.train(
 Updated AClass object containing trained models (\code{$training_model_list}), training metadata, and the training dataset. Also saves model performance matrices and confusion matrices to disk.
 }
 \description{
-Prenorm Nanostring Data and produce report
+Create ensemble model using data from \verb{$train.data.main} and produce report training performance
 }
 \examples{
 training_models <- nano.train(

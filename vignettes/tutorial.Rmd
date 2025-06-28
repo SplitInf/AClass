@@ -1,12 +1,12 @@
 ---
-title: "tutorial"
+title: "AClass Tutorial"
 author: "Ben Ho, Annie Huang"
-date: "2024-06-19"
-output: 
-  rmarkdown:::html_vignette:
+date: "2024-06-27"
+output:
+  rmarkdown::html_vignette:
     toc: true
 vignette: >
-  %\VignetteIndexEntry{tutorial}
+  %\VignetteIndexEntry{AClass Tutorial}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -20,126 +20,211 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-`AClass` is an R package designed to perform tumor subgroup classification using transcriptomic data, particularly from small cohorts. The method was originally developed for the classification of Atypical Teratoid Rhabdoid Tumors (ATRT) using probe-based NanoString nCounter data, but the core framework is compatible with other gene expression platforms.
+`AClass` is an R package designed for robust tumor subgroup classification using transcriptomic data, especially for small-cohort settings such as NanoString nCounter. Originally developed for Atypical Teratoid Rhabdoid Tumor (ATRT) classification, the motivation behind AClass is to enable robust subgroup classification in clinical settings when working with limited sample size, degraded/archival RNA, or cost- and time-sensitive workflows. To address this, AClass implements an ensemble classification strategy over a minimal biomarker panel.
 
-The motivation behind AClass is to enable robust subgroup classification in clinical settings when working with limited sample size, degraded/archival RNA, or cost- and time-sensitive workflows. To address this, AClass implements an ensemble classification strategy over a minimal biomarker panel.
-
-
-#### Method Summary
-The AClass workflow consists of the following components:
-- Subgroup signature gene list: A minimal gene signature list, optimized for classification performance. The default panel, [CodeSet30](https://github.com/SplitInf/AClass/blob/main/inst/extdata/probes_list_hgnc.txt)
-, was derived from subgroup-specific overexpressed genes in ATRT and is included in the package.
-- Model selection: Multiple machine learning algorithms (e.g., rf, pam, glmnet, nb, knn) are evaluated across a range of gene subset sizes (e.g., 20–30 genes). As described in the publication, the top 5 algorithms over 20-30 genes were used to create a total of 55 classification models. Pre-trained models are included with the package.
-- Ensemble prediction: Classification is performed using a hard-voting strategy across all selected models. The final class assignment is based on majority vote, and a prediction score is computed by averaging probabilities across models that agree on the predicted class.
-
-#### Input Requirements
-- Expression data matrix (NanoString or other transcriptomic platform)
-- Training labels (required only for retraining)
-- Pre-ranked probe list (required only for retraining)
-
-#### Output
-- Predicted class labels and prediction scores
-- Classification report summarizing model agreement and QC
-- Visualization tools including multidimensional scaling (MDS) plots
-
-### Publication
-If you have used AClass or CodeSet30 for your work, please cite [publication](https://doi.org/10.1093/noajnl/vdae004).
-Ben Ho , Anthony Arnoldo , Yvonne Zhong , Mei Lu , Jonathon Torchia , Fupan Yao , Cynthia Hawkins , Annie Huang. **Rapid, economical diagnostic classification of ATRT molecular subgroup using NanoString nCounter platform**. Neuro-Oncology Advances (2024), https://doi.org/10.1093/noajnl/vdae004 .
-
-```{r fig2a, echo=FALSE, fig.cap="Schema outlining out construction process of ATRT subgrouping ensemble classifier using NanoString data analysis.", out.width = '75%'}
+```{r fig2a, echo=FALSE, fig.cap="AClass training and classification schema.", out.width='75%'}
 knitr::include_graphics("figures/Fig2a.png")
 ```
 
-```{r fig2b, echo=FALSE, fig.cap="Representative prediction score plot for eight algorithms: (x-axis) number of genes used in a model and (y-axis) training accuracies where 1 = perfect accuracy. To prevent over-fitting, the top 5 best performing classification models from 8 algorithms (red box) were incorporated into an ensemble classifier.", out.width = '75%'}
+## How It Works
+
+AClass uses an ensemble classifier strategy optimized for small-cohort transcriptomic data. The workflow includes:
+
+- **Subgroup signature gene list**: A minimal panel of overexpressed genes used to distinguish subgroups. The default [CodeSet30](https://github.com/SplitInf/AClass/blob/main/inst/extdata/CodeSet30.tsv) was derived from differential expression in ATRT samples.
+- **Model selection**: The ensemble classifier is constructed with a mix of machine learning algorithms evaluated across a range of gene subset sizes. In the original publication, the top 5 algorithms (rf, pam, glmnet, nb, knn) over 20-30 genes were used to create a total of 55 classification models. Pre-trained models are included with the package.
+- **Ensemble prediction**: Classification is based on hard voting among models. The predicted group is determined by majority, and a probability score reflects agreement among classifiers.
+
+```{r fig2b, echo=FALSE, fig.cap="Model selection accuracy plot: 8 algorithms vs number of genes.", out.width='75%'}
 knitr::include_graphics("figures/Fig2b.png")
 ```
+# 1. Quick Start
 
+This minimal example uses demo data to classify samples using a pre-trained model.
 
-```{r input, eval = FALSE}
-
+```{r eval=FALSE}
 library(AClass)
-work_path <- "/Your/Work/Path"
-
-#nanostring data# (if you have your own transcriptomic data, you can start from step 3.1)
-test_raw_path <- "/Your/Work/Path/test"
-train_raw_path <- "/Your/Work/Path/training"
-ref_path <- "/Your/Work/Path/AClass/Reference_files"
-
-# labels used for training *optional* only required when needing to retrain models. tsv file with column one with sample name and column two with group assignment
-training_memberships_path <- "/Your/Work/Path/AClass/Reference_files/Torchia_2016_GEP_k3_train_labels.txt"
-probes_rank_path <- "/Your/Work/Path/AClass/Reference_files/probes_list_hgnc.txt"
-# name of project #
-project_name <- "demo"
-
-###### Code ######
-# {1} Loading all required libraries
-initialize.prj() # install and load all required libraries
-
-# Training. If you have trained models already you can skip all step 2
-# {2} load training data
-# By default, samples_omit.txt or samples_keep.txt can be supplied to control which samples to exclude or include respectively.
-#train <- process.raw(work_path, prefix = project_name, raw_path = raw_path, keep_file_path = keep_file_path)
-train <- process.raw(work_path, prefix = project_name, raw_path = train_raw_path,recursive_read = TRUE)
-
-# {3.1} nano.trainsplit()
-# splits up data into training and the remaining for testing
-# N.train.per is the percentage for training 1=100% training, 0.6=60% training ..etc
-train <- nano.trainsplit(data = train, training_memberships_path, N.train.per=1)
-
-# {3.2} nano.train() & nano.train.report()
-# alg_list controls which algrithm to use. By default uses alg_list = c("rf","glmnet","pam", "nb", "knn").
-# default training settings: 
-# min_test_features=20, 
-# max_test_features=30, 
-# alg_list = c("rf","glmnet","pam", "nb", "knn"),  
-# c.method = "repeatedcv", c.repeats = 5, c.number = 10
-
-#models <- nano.train(prefix=project_name, data = train, work_path=work_path, alg_list = c("rf","pam"), min_test_features=28, max_test_features=30, c.repeats = 2, probes_rank_path = probes_rank_path)
-
-# {4} load trained models for testing. 
-# If there is no need for training the process begins here load trained model RDS *_Training_Models_List.RDS
 data(models)
 data(test_obj)
-# {5} load testing data
-# sample loading process for training and testing is the same (refer to {1})
-# SampleContent default to "housekeeping.geo.mean" when not included. Options are none, housekeeping.sum, housekeeping.geo.mean, total.sum, low.cv.geo.mean, top.mean and top.geo.mean
-#test_obj <- process.raw(work_path = work_path, raw_path = test_raw_path, prefix = project_name)
 
-# {6} classify.data()
-# use pre-trained models for classification and generates report output
-# geomean value of housekeeping gene threshold of 100 is used by default
-test_obj <- classify.data(work_path = work_path, data = test_obj, prefix = project_name, training_model_obj = models)
+work_path <- "/Your/Work/Path"
+test_obj <- classify.data(
+  work_path = work_path,
+  data = test_obj,
+  prefix = "demo",
+  training_model_obj = models
+)
+
+# View summary
+head(test_obj$test_summary)
+```
+
+# 2. Input Requirements
+
+- **NanoString RCC files** or **expression matrix**
+- (Optional) Group labels for training
+- (Optional) Pre-ranked probe list for custom training
+
+If using your own expression matrix, it should be:
+- Rows = samples
+- Columns = genes/features
+- Include a column named `Group` if supervised training is needed
+
+# 3. Full Workflow
+
+## 3.1 Preprocess Raw Data
+
+```{r eval=FALSE}
+work_path <- "/Your/Work/Path"
+test_raw_path <- system.file("extdata", package = "AClass") #demo data containing samples profiled with different chemistry
+project_name <- "demo"
+
+# Load RCC or NanoString expression text files
+test_data <- process.raw(work_path, prefix = project_name, raw_path = test_raw_path)
+```
+
+## 3.2 Optional: Train Custom Model
+
+In this example, we will split 80% of the data for training and 20% for validation.
+The result AClass object would have new slot `train.data.main` and `train.data.validate`
+
+Note: This toy dataset is provided to illustrate the training workflow. In real applications, appropriate sample size and balanced subgroup representation are essential.
 
 
+```{r eval=FALSE}
 
-# Other tools # 
-#1) Visualization with MDS plot
+#split data in to training and validation
+train <- nano.trainsplit(test_data, training_memberships_path, N.train.per = 0.8)
+```
 
-# static plot # (minimum 3 samples)
-nano.MDS(prefix = project_name, data = test_obj, plot_type = "ggplot",data_name = "norm.t")
+The data is now ready for training. This step can be time consuming so we will just use two algorithms (random forest and pam) and 3 feature combination (28 to 30 genes) to demonstrate. A total of 6 models will be generated.
 
-# interactive plot # (minimum 3 samples)
-nano.MDS(prefix = project_name, data = test_obj, plot_type = "plotly",data_name = "norm.t")
+`probes_rank_path` is the path to probe/gene ranking list, one gene per line. Ideally the list should be sorted E.g. gene list sorted by p value (most significant to least). By default it looks for file called `probes_list.txt`.
 
-#2) Visualize data in reference to training data
-# can use training data from step2 or using the training models
-nano.MDS.train.test(prefix= project_name, train.data = train, test.data=test_obj , colour_code=test_obj$colour_code, plot_type = "plotly")
-nano.MDS.train.test(prefix= project_name, train.data = models, test.data=test_obj , colour_code=test_obj$colour_code, plot_type = "plotly")
+```{r eval=FALSE}
 
-#3) Get training information from model ##
+#path to files used in the tutorial
+aclass_files_path <- system.file("extdata", package = "AClass")
+
+#demo ranking file for CodeSet30
+probes_rank_path <- paste(aclass_files_path,"probes_list_hgnc.txt",sep= "/")
+
+#shows path location
+probes_rank_path
+
+#create ensemble model
+models <- nano.train(
+  prefix = project_name,
+  data = train,
+  work_path = work_path,
+  probes_rank_path = probes_rank_path,
+  alg_list = c("rf","pam"),
+  min_test_features=28, 
+  max_test_features=30
+)
+
+# Get training information from model
+nano.train.report(prefix = project_name, training_model_obj = models)
+```
+
+## 3.3 Classify Samples
+
+AClass object can be classified using any expression matrix. If you have NanoString data on CodeSet30, you can simply use the pre-trained model that comes with the package
+Note: It is highly recommended that training and testing data are normalized the same way to minimize batch effect.
+
+
+```{r eval=FALSE}
+# Using pre-trained models
+data(models)
+
+# Get training information from model
 get.training.stats(training_model_obj = models) # obtain model information
 
-#4) Generate training report.
-# command to pull out information about the models.
-nano.train.report(prefix=project_name, training_model_obj=models, feature_min=28, feature_max=30)
+# Generate training report and pull out information about the models.
+nano.train.report(prefix=project_name, training_model_obj=models, feature_min=20, feature_max=30)
+
+#test
+test_obj <- classify.data(
+  work_path = work_path,
+  data = test_data,
+  prefix = project_name,
+  training_model_obj = models
+)
 
 ```
 
-```{r fig3d, echo=FALSE, fig.cap="MDS analysis of 11 MRT (solid circle) against ATRT training set (open circle). Training labels and testing results are color coded based on subgroups (red = SHH, blue = TYR, green = MYC). The dotted ellipses represent the 95% confidence interval for training samples in each subgroup.", out.width = "auto"}
+```{r figs3b, echo=FALSE, fig.cap="Example classification report output.", out.width='75%'}
+knitr::include_graphics("figures/FigS3b.png")
+```
+
+# 4. Understanding Outputs
+
+The AClass object is a structured list containing data and results in different 'slots' that is used through out the workflow.
+
+## Core Slots:
+From process.raw()
+- `raw`: original NanoString data
+- `prenorm_qc`: QC statistics before normalization. E.g. housekeeping genes Mean and GeoMean expression to estimate quality.
+- `norm`: data normalized to housekeeping genes by `NanostringNorm`.
+- `norm.t`: same as `norm` but transposed.
+From nano.trainsplit()
+- `train.data.main`: Data used for training
+- `train.data.validate`: Held off data for validation
+From classify.data()
+- `test_summary`: Final class assignments and prediction scores.
+- `test_results`: Aggregated majority vote results.
+- `test_results_full`: All predictions across models.
+- `colour_code`: Subgroups and color code for reports and visualizations.
+Log
+- `run_info`: Log information on operations performed on AClass object. From process.raw(), classify.data()
+
+## Interpreting results:
+- `Agreement == 1`: unanimous classifier consensus
+- `Avg_Probability`: confidence score (0–1)
+- `GeoMean`: Geometric means of housekeeping gene expression for quality assessment. Default is 100 for NanoString data to be considered high quality.
+
+# 5. Visualization Tools
+
+## Static MDS Plot
+
+MDS (Multidimensional Scaling) plots visualize similarity between samples based on expression profiles.
+
+```{r eval=FALSE}
+nano.MDS(prefix = project_name, data = test_obj, plot_type = "ggplot")
+```
+
+## Interactive Plot
+```{r eval=FALSE}
+nano.MDS(prefix = project_name, data = test_obj, plot_type = "plotly")
+```
+
+## Train/Test Comparison
+```{r eval=FALSE}
+nano.MDS.train.test(
+  prefix = project_name,
+  train.data = models,
+  test.data = test_obj,
+  colour_code = test_obj$colour_code,
+  plot_type = "plotly"
+)
+```
+
+```{r fig3d, echo=FALSE, fig.cap="MDS plot of MRT samples vs ATRT reference.", out.width='75%'}
 knitr::include_graphics("figures/Fig3d.png")
 ```
 
+# 6. Support for Gene expression matrix, RNASeq or GEO Data
 
-```{r figs3b, echo=FALSE, fig.cap="A sample analysis report with visuals indicating agreement between models and predictions score for each subgroup.", out.width = "auto"}
-knitr::include_graphics("figures/FigS3b.png")
+You can adapt `df2nano()` for microarray or RNA-seq datasets. See [vignette part2](tutorial2.Rmd) for full Affymetrix demo with `GSE70678`.
+
+```{r eval=FALSE}
+exprs_df <- getGEO("GSE70678", GSEMatrix = TRUE)[[1]] |> exprs()
+# Map probes -> gene symbols, aggregate, format
+# Then:
+df <- df2nano(formatted_matrix, add_to = "train.data.main")
 ```
+
+# 7. Citation
+
+If you use `AClass` or `CodeSet30`, please cite:
+
+> Ho B, Arnoldo A, Zhong Y, et al. Rapid, economical diagnostic classification of ATRT molecular subgroup using NanoString nCounter platform. *Neuro-Oncology Advances*. 2024. [doi:10.1093/noajnl/vdae004](https://doi.org/10.1093/noajnl/vdae004)
