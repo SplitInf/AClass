@@ -40,7 +40,7 @@ Open R in the directory you cloned the package in and run `install.packages('ACl
 ## Tutorial
 
 For detailed usage instructions, see the AClass [tutorial](http://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial.html).
-
+For instructions on using expression matrix such as microarray or RNA-seq datasets, see [tutorial2](http://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial2.html).
 
 
 ## Publication
