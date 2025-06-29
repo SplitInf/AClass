@@ -1,6 +1,6 @@
 ---
 title: "AClass Tutorial"
-author: "Ben Ho, Annie Huang"
+author: "Ben Ho"
 date: "2024-06-27"
 output:
   rmarkdown::html_vignette:
