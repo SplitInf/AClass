@@ -1,7 +1,7 @@
 ---
 title: "AClass Tutorial"
 author: "Ben Ho"
-date: "2024-06-27"
+date: "2025-06-27"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -22,7 +22,7 @@ knitr::opts_chunk$set(
 
 `AClass` is an R package designed for robust tumor subgroup classification using transcriptomic data, especially for small-cohort settings such as NanoString nCounter. Originally developed for Atypical Teratoid Rhabdoid Tumor (ATRT) classification, the motivation behind AClass is to enable robust subgroup classification in clinical settings when working with limited sample size, degraded/archival RNA, or cost- and time-sensitive workflows. To address this, AClass implements an ensemble classification strategy over a minimal biomarker panel.
 
-```{r fig2a, echo=FALSE, fig.cap="AClass training and classification schema.", out.width='75%'}
+```{r fig2a, echo=FALSE, fig.cap="AClass training and classification schema (Fig.2a).", out.width='75%'}
 knitr::include_graphics("figures/Fig2a.png")
 ```
 
@@ -34,7 +34,7 @@ AClass uses an ensemble classifier strategy optimized for small-cohort transcrip
 - **Model selection**: The ensemble classifier is constructed with a mix of machine learning algorithms evaluated across a range of gene subset sizes. In the original publication, the top 5 algorithms (rf, pam, glmnet, nb, knn) over 20-30 genes were used to create a total of 55 classification models. Pre-trained models are included with the package.
 - **Ensemble prediction**: Classification is based on hard voting among models. The predicted group is determined by majority, and a probability score reflects agreement among classifiers.
 
-```{r fig2b, echo=FALSE, fig.cap="Model selection accuracy plot: 8 algorithms vs number of genes.", out.width='75%'}
+```{r fig2b, echo=FALSE, fig.cap="Model selection accuracy plot: 8 algorithms vs number of genes (Fig.2b).", out.width='75%'}
 knitr::include_graphics("figures/Fig2b.png")
 ```
 # 1. Quick Start
@@ -152,7 +152,7 @@ test_obj <- classify.data(
 
 ```
 
-```{r figs3b, echo=FALSE, fig.cap="Example classification report output.", out.width='75%'}
+```{r figs3b, echo=FALSE, fig.cap="Example classification report output (Fig.S3b).", out.width='50%'}
 knitr::include_graphics("figures/FigS3b.png")
 ```
 
@@ -216,7 +216,7 @@ nano.MDS.train.test(
 )
 ```
 
-```{r fig3d, echo=FALSE, fig.cap="MDS plot of MRT samples vs ATRT reference.", out.width='75%'}
+```{r fig3d, echo=FALSE, fig.cap="MDS plot of MRT samples vs ATRT reference (Fig.3d).", out.width='50%'}
 knitr::include_graphics("figures/Fig3d.png")
 ```
 
