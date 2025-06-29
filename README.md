@@ -40,7 +40,7 @@ install.packages('AClass', repos = NULL)
 ```
 
 ## Tutorial
-[Tutorial Part 1 - Standard Use Case (NanoString)](http://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial.html)
+[Tutorial Part 1 - Getting Started](http://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial.html)
 
 [Tutorial Part 2 - Custom Expression Matrix (microarray, RNA-seq)](http://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial2.html)
 
