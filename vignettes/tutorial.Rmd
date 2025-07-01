@@ -222,7 +222,7 @@ knitr::include_graphics("figures/Fig3d.png")
 
 # 6. Support for Gene expression matrix, RNASeq or GEO Data
 
-You can adapt `df2nano()` for microarray or RNA-seq datasets. See [vignette part2](tutorial2.Rmd) for full Affymetrix demo with `GSE70678`.
+You can adapt `df2nano()` for microarray or RNA-seq datasets. See [vignette part2](https://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial2.html) for full Affymetrix demo with `GSE70678`.
 
 ```{r eval=FALSE}
 exprs_df <- getGEO("GSE70678", GSEMatrix = TRUE)[[1]] |> exprs()

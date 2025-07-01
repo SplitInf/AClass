@@ -619,8 +619,8 @@ MDS plot of MRT samples vs ATRT reference (Fig.3d).
 <div id="support-for-gene-expression-matrix-rnaseq-or-geo-data" class="section level1">
 <h1>6. Support for Gene expression matrix, RNASeq or GEO Data</h1>
 <p>You can adapt <code>df2nano()</code> for microarray or RNA-seq
-datasets. See <a href="tutorial2.Rmd">vignette part2</a> for full
-Affymetrix demo with <code>GSE70678</code>.</p>
+datasets. See <a href="https://htmlpreview.github.io/?https://github.com/SplitInf/AClass/blob/main/doc/tutorial2.html">vignette
+part2</a> for full Affymetrix demo with <code>GSE70678</code>.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>exprs_df <span class="ot">&lt;-</span> <span class="fu">getGEO</span>(<span class="st">&quot;GSE70678&quot;</span>, <span class="at">GSEMatrix =</span> <span class="cn">TRUE</span>)[[<span class="dv">1</span>]] <span class="sc">|&gt;</span> <span class="fu">exprs</span>()</span>
 <span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co"># Map probes -&gt; gene symbols, aggregate, format</span></span>
 <span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co"># Then:</span></span>
