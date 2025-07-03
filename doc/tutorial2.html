@@ -410,8 +410,8 @@ Part 2 to load the provided data.</p>
 <span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="fu">as.data.frame</span>()</span>
 <span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="fu">rownames</span>(gene_exprs) <span class="ot">&lt;-</span> gene_exprs<span class="sc">$</span>Gene</span>
 <span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>gene_exprs<span class="sc">$</span>Gene <span class="ot">&lt;-</span> <span class="cn">NULL</span></span></code></pre></div>
-<p>Add subgroup labels based on classification from Ho et al., 2019
-(doi: 10.1093/neuonc/noz235)</p>
+<p>Add subgroup labels based on classification from the Ho et al., 2019
+(doi: 10.1093/neuonc/noz235) <a href="https://pubmed.ncbi.nlm.nih.gov/31889194/">paper</a></p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a></span>
 <span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#path to files used in the tutorial</span></span>
 <span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>aclass_files_path <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="at">package =</span> <span class="st">&quot;AClass&quot;</span>)</span>
@@ -460,8 +460,9 @@ training is required. For RNA-seq data, ensure proper normalization
 <p>In the <a href="https://pubmed.ncbi.nlm.nih.gov/38981018/">study</a>
 by Golbourn et al., 2024 (doi: 10.1093/neuonc/noae120.), AClass was used
 to identify the subgroup of some ATRT cell lines that were profiled
-using Illumina HT12 array data in the form of an expression matrix.
-Refer to the publication for details on the data set and models.</p>
+using Illumina HT12 array data in the form of an expression matrix. This
+is a demo to illustrate how that can be done, please refer to the
+publication for details on the data set and models.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a></span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">data</span>(cells_data) <span class="co"># load cell lines data</span></span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="fu">data</span>(models) <span class="co"># load pre-trained nanostring models</span></span>
@@ -480,12 +481,7 @@ Refer to the publication for details on the data set and models.</p>
 <span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>cells_test_obj <span class="ot">&lt;-</span> <span class="fu">classify.data</span>(<span class="at">work_path =</span> work_path, <span class="at">data =</span> cells_test_obj, <span class="at">prefix =</span> <span class="st">&quot;Ilmn&quot;</span>, <span class="at">training_model_obj =</span> models_Ilmn, <span class="at">thres_geomean =</span> <span class="cn">NULL</span>, <span class="at">remap_to_atrt_consensus =</span> <span class="cn">TRUE</span>) </span>
 <span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a></span>
 <span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#check results here:</span></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>cells_test_obj<span class="sc">$</span>test_summary</span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a></span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>cells_test_obj <span class="ot">&lt;-</span> <span class="fu">classify.data</span>(<span class="at">work_path =</span> work_path, <span class="at">data =</span> cells_test_obj, <span class="at">prefix =</span> <span class="st">&quot;NS&quot;</span>, <span class="at">training_model_obj =</span> models_Ilmn, <span class="at">thres_geomean =</span> <span class="cn">NULL</span>, <span class="at">remap_to_atrt_consensus =</span> <span class="cn">TRUE</span>) </span>
-<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a></span>
-<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#check results here:</span></span>
-<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>cells_test_obj<span class="sc">$</span>test_summary</span></code></pre></div>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>cells_test_obj<span class="sc">$</span>test_summary</span></code></pre></div>
 </div>
 <div id="summary-1" class="section level2">
 <h2>3. Summary</h2>

@@ -67,7 +67,7 @@ rownames(gene_exprs) <- gene_exprs$Gene
 gene_exprs$Gene <- NULL
 ```
 
-Add subgroup labels based on classification from Ho et al., 2019 (doi: 10.1093/neuonc/noz235)
+Add subgroup labels based on classification from the Ho et al., 2019 (doi: 10.1093/neuonc/noz235) [paper](https://pubmed.ncbi.nlm.nih.gov/31889194/)
 
 ```{r eval=FALSE}
 
@@ -118,7 +118,7 @@ This workflow can be adapted for any tabular gene expression input, as long as *
 
 ## 1. Transform expression matrix to AClass object for testing
 
-In the [study](https://pubmed.ncbi.nlm.nih.gov/38981018/) by Golbourn et al., 2024 (doi: 10.1093/neuonc/noae120.), AClass was used to identify the subgroup of some ATRT cell lines that were profiled using Illumina HT12 array data in the form of an expression matrix. Refer to the publication for details on the data set and models.
+In the [study](https://pubmed.ncbi.nlm.nih.gov/38981018/) by Golbourn et al., 2024 (doi: 10.1093/neuonc/noae120.), AClass was used to identify the subgroup of some ATRT cell lines that were profiled using Illumina HT12 array data in the form of an expression matrix. This is a demo to illustrate how that can be done, please refer to the publication for details on the data set and models.
 
 ```{r eval=FALSE}
 
@@ -140,11 +140,6 @@ cells_test_obj <- convert2test(data = cells_obj)
 
 #Classify samples. Note that `thres_geomean` = NULL as that is currently reserved for NanoString data. The parameter `remap_to_atrt_consensus` = TRUE by default to return ATRT consensus subgroup nomenclature naming
 cells_test_obj <- classify.data(work_path = work_path, data = cells_test_obj, prefix = "Ilmn", training_model_obj = models_Ilmn, thres_geomean = NULL, remap_to_atrt_consensus = TRUE) 
-
-#check results here:
-cells_test_obj$test_summary
-
-cells_test_obj <- classify.data(work_path = work_path, data = cells_test_obj, prefix = "NS", training_model_obj = models_Ilmn, thres_geomean = NULL, remap_to_atrt_consensus = TRUE) 
 
 #check results here:
 cells_test_obj$test_summary
