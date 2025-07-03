@@ -67,7 +67,7 @@ rownames(gene_exprs) <- gene_exprs$Gene
 gene_exprs$Gene <- NULL
 ```
 
-Add subgroup labels based on classification from the Ho et al., 2019 (doi: 10.1093/neuonc/noz235) [paper](https://pubmed.ncbi.nlm.nih.gov/31889194/)
+Add subgroup labels based on classification from the Ho et al., 2019 [study](https://pubmed.ncbi.nlm.nih.gov/31889194/) (doi: 10.1093/neuonc/noz235)
 
 ```{r eval=FALSE}
 
